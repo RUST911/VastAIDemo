@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能运维监控 - 智能数据库管理平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- 引入Chart.js用于图表展示 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#4080FF',
+                        neutral: '#F5F7FA',
+                        dark: '#1D2129',
+                        light: '#C9CDD4',
+                        success: '#00B42A',
+                        warning: '#FF7D00',
+                        danger: '#F53F3F',
+                        info: '#86909C'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-primary {
+                @apply bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors;
+            }
+            .card {
+                @apply bg-white rounded-xl shadow-md border border-gray-100 p-6;
+            }
+            .stat-card {
+                @apply bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col;
+            }
+            .alert-item {
+                @apply flex items-start p-3 border-l-4 rounded-r mb-2 bg-white hover:shadow-md transition-shadow;
+            }
+            .alert-success {
+                @apply border-success bg-green-50;
+            }
+            .alert-warning {
+                @apply border-warning bg-amber-50;
+            }
+            .alert-danger {
+                @apply border-danger bg-red-50;
+            }
+            .alert-info {
+                @apply border-info bg-gray-50;
+            }
+        }
+    </style>
+</head>
+<body class="bg-neutral min-h-screen">
+    <!-- 顶部导航 -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <a href="index.html" class="text-primary text-xl"><i class="fa fa-arrow-left"></i></a>
+                <h1 class="text-xl font-bold text-primary">智能运维监控模块</h1>
+            </div>
+            <div class="flex gap-3 items-center">
+                <div class="relative">
+                    <select class="appearance-none bg-gray-100 text-gray-700 px-4 py-2 pr-8 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <option>最近1小时</option>
+                        <option>最近6小时</option>
+                        <option selected>最近24小时</option>
+                        <option>最近7天</option>
+                        <option>最近30天</option>
+                    </select>
+                    <i class="fa fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"></i>
+                </div>
+                <button class="btn-primary">
+                    <i class="fa fa-refresh mr-2"></i>刷新数据
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- 概览统计卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <!-- CPU使用率 -->
+            <div class="stat-card">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="font-semibold text-gray-700">CPU使用率</h3>
+                    <span class="text-warning text-sm px-2 py-1 rounded-full bg-amber-100">偏高</span>
+                </div>
+                <div class="flex items-end justify-between flex-grow">
+                    <span class="text-3xl font-bold text-dark">68%</span>
+                    <div class="w-16 h-16 relative">
+                        <canvas id="cpuChart"></canvas>
+                    </div>
+                </div>
+                <div class="mt-2 text-xs text-gray-500">
+                    <span class="text-warning"><i class="fa fa-arrow-up"></i> 12%</span> 较昨日同期
+                </div>
+            </div>
+
+            <!-- 内存使用率 -->
+            <div class="stat-card">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="font-semibold text-gray-700">内存使用率</h3>
+                    <span class="text-danger text-sm px-2 py-1 rounded-full bg-red-100">告警</span>
+                </div>
+                <div class="flex items-end justify-between flex-grow">
+                    <div>
+                        <span class="text-3xl font-bold text-dark">89%</span>
+                        <p class="text-xs text-gray-500">15.2/16.0 GB</p>
+                    </div>
+                    <div class="w-16 h-16 relative">
+                        <canvas id="memChart"></canvas>
+                    </div>
+                </div>
+                <div class="mt-2 text-xs text-gray-500">
+                    <span class="text-danger"><i class="fa fa-arrow-up"></i> 23%</span> 较昨日同期
+                </div>
+            </div>
+
+            <!-- 磁盘使用率 -->
+            <div class="stat-card">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="font-semibold text-gray-700">磁盘使用率</h3>
+                    <span class="text-info text-sm px-2 py-1 rounded-full bg-gray-100">正常</span>
+                </div>
+                <div class="flex items-end justify-between flex-grow">
+                    <div>
+                        <span class="text-3xl font-bold text-dark">42%</span>
+                        <p class="text-xs text-gray-500">210/500 GB</p>
+                    </div>
+                    <div class="w-16 h-16 relative">
+                        <canvas id="diskChart"></canvas>
+                    </div>
+                </div>
+                <div class="mt-2 text-xs text-gray-500">
+                    <span class="text-success"><i class="fa fa-arrow-down"></i> 5%</span> 较昨日同期
+                </div>
+            </div>
+
+            <!-- 数据库QPS -->
+            <div class="stat-card">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="font-semibold text-gray-700">数据库QPS</h3>
+                    <span class="text-warning text-sm px-2 py-1 rounded-full bg-amber-100">峰值</span>
+                </div>
+                <div class="flex items-end justify-between flex-grow">
+                    <span class="text-3xl font-bold text-dark">18,542</span>
+                    <div class="text-right">
+                        <p class="text-xs text-gray-500">峰值: 22,890</p>
+                        <p class="text-xs text-gray-500">谷值: 3,210</p>
+                    </div>
+                </div>
+                <div class="mt-2 text-xs text-gray-500">
+                    <span class="text-warning"><i class="fa fa-arrow-up"></i> 38%</span> 较昨日同期
+                </div>
+            </div>
+        </div>
+
+        <!-- 资源监控曲线 -->
+        <div class="card mb-8">
+            <h2 class="text-xl font-bold mb-6 flex items-center">
+                <i class="fa fa-line-chart text-primary mr-2"></i>系统资源监控曲线
+            </h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- CPU & 内存监控 -->
+                <div>
+                    <h3 class="font-semibold mb-4 text-gray-700">CPU & 内存使用率 (24小时)</h3>
+                    <div class="h-80">
+                        <canvas id="resourceChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- 磁盘IO & 网络监控 -->
+                <div>
+                    <h3 class="font-semibold mb-4 text-gray-700">磁盘IO & 网络流量 (24小时)</h3>
+                    <div class="h-80">
+                        <canvas id="ioChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 容量预测与TOP排行 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- 容量预测 -->
+            <div class="card">
+                <h2 class="text-xl font-bold mb-4 flex items-center">
+                    <i class="fa fa-bar-chart text-primary mr-2"></i>磁盘容量预测
+                </h2>
+                
+                <div class="h-72">
+                    <canvas id="predictChart"></canvas>
+                </div>
+                
+                <div class="mt-4 p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                    <div class="flex items-start">
+                        <i class="fa fa-lightbulb-o text-primary mt-1 mr-2"></i>
+                        <div>
+                            <p class="font-medium text-primary">容量预警</p>
+                            <p class="text-sm text-gray-700 mt-1">基于近30天的磁盘使用趋势分析，/data分区将在<span class="font-bold text-danger">15天后</span>达到85%的阈值（当前42%），建议提前规划扩容至1TB。</p>
+                            <button class="mt-2 text-primary text-sm font-medium hover:underline">
+                                <i class="fa fa-download mr-1"></i>导出详细预测报告
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOP值排行 -->
+            <div class="card">
+                <h2 class="text-xl font-bold mb-4 flex items-center">
+                    <i class="fa fa-trophy text-primary mr-2"></i>性能TOP排行
+                </h2>
+                
+                <div class="space-y-6">
+                    <!-- 慢SQL TOP5 -->
+                    <div>
+                        <h3 class="font-semibold mb-3 text-gray-700 flex items-center">
+                            <i class="fa fa-hourglass-half text-warning mr-2"></i>慢SQL TOP5
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">排名</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SQLID</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">执行耗时(ms)</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">执行次数</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200 text-sm">
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-3 py-2 whitespace-nowrap font-medium">1</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">SQL98765</td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-danger">8,945</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">1,258</td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-3 py-2 whitespace-nowrap font-medium">2</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">SQL98764</td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-danger">6,782</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">892</td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-3 py-2 whitespace-nowrap font-medium">3</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">SQL98763</td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-warning">4,521</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">1,567</td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-3 py-2 whitespace-nowrap font-medium">4</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">SQL98762</td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-warning">3,876</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">987</td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-3 py-2 whitespace-nowrap font-medium">5</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">SQL98761</td>
+                                        <td class="px-3 py-2 whitespace-nowrap text-warning">2,987</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">2,145</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 连接数TOP5 -->
+                    <div>
+                        <h3 class="font-semibold mb-3 text-gray-700 flex items-center">
+                            <i class="fa fa-plug text-primary mr-2"></i>数据库连接数TOP5
+                        </h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">应用</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">当前连接数</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最大连接数</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">使用率</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200 text-sm">
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-3 py-2 whitespace-nowrap font-medium">订单系统</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">896</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">1000</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="bg-danger h-2 rounded-full" style="width: 89.6%"></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-3 py-2 whitespace-nowrap font-medium">用户中心</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">754</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">1000</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="bg-warning h-2 rounded-full" style="width: 75.4%"></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-3 py-2 whitespace-nowrap font-medium">支付系统</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">587</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">1000</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="bg-primary h-2 rounded-full" style="width: 58.7%"></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-3 py-2 whitespace-nowrap font-medium">库存系统</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">423</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">1000</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="bg-primary h-2 rounded-full" style="width: 42.3%"></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-3 py-2 whitespace-nowrap font-medium">日志系统</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">289</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">1000</td>
+                                        <td class="px-3 py-2 whitespace-nowrap">
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="bg-success h-2 rounded-full" style="width: 28.9%"></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 智能告警与根因分析 -->
+        <div class="card mb-8">
+            <h2 class="text-xl font-bold mb-4 flex items-center">
+                <i class="fa fa-bell text-primary mr-2"></i>智能告警与根因分析
+            </h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- 告警列表 -->
+                <div class="lg:col-span-2">
+                    <h3 class="font-semibold mb-3 text-gray-700">最近告警 (已降噪聚合)</h3>
+                    <div class="space-y-1 max-h-96 overflow-y-auto pr-2">
+                        <!-- 严重告警 -->
+                        <div class="alert-item alert-danger">
+                            <i class="fa fa-exclamation-circle text-danger mt-1 mr-3"></i>
+                            <div class="flex-1">
+                                <div class="flex justify-between">
+                                    <h4 class="font-medium text-danger">内存使用率过高</h4>
+                                    <span class="text-xs text-gray-500">10分钟前</span>
+                                </div>
+                                <p class="text-sm text-gray-700 mt-1">数据库服务器内存使用率持续超过85%达5分钟，当前使用率89% (15.2/16GB)</p>
+                                <div class="mt-2 flex gap-2">
+                                    <button class="text-xs bg-danger/10 text-danger px-3 py-1 rounded hover:bg-danger/20 transition-colors">
+                                        <i class="fa fa-search mr-1"></i>根因分析
+                                    </button>
+                                    <button class="text-xs bg-gray-100 text-gray-800 px-3 py-1 rounded hover:bg-gray-200 transition-colors">
+                                        <i class="fa fa-check mr-1"></i>已处理
+                                    </button>
+                                    <button class="text-xs bg-gray-100 text-gray-800 px-3 py-1 rounded hover:bg-gray-200 transition-colors">
+                                        <i class="fa fa-bell-slash mr-1"></i>屏蔽
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 警告告警 -->
+                        <div class="alert-item alert-warning">
+                            <i class="fa fa-exclamation-triangle text-warning mt-1 mr-3"></i>
+                            <div class="flex-1">
+                                <div class="flex justify-between">
+                                    <h4 class="font-medium text-warning">订单系统连接数过高</h4>
+                                    <span class="text-xs text-gray-500">25分钟前</span>
+                                </div>
+                                <p class="text-sm text-gray-700 mt-1">订单系统数据库连接数达到896/1000，使用率89.6%，存在连接池耗尽风险</p>
+                                <div class="mt-2 flex gap-2">
+                                    <button class="text-xs bg-warning/10 text-warning px-3 py-1 rounded hover:bg-warning/20 transition-colors">
+                                        <i class="fa fa-search mr-1"></i>根因分析
+                                    </button>
+                                    <button class="text-xs bg-gray-100 text-gray-800 px-3 py-1 rounded hover:bg-gray-200 transition-colors">
+                                        <i class="fa fa-check mr-1"></i>已处理
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 信息告警 -->
+                        <div class="alert-item alert-info">
+                            <i class="fa fa-info-circle text-info mt-1 mr-3"></i>
+                            <div class="flex-1">
+                                <div class="flex justify-between">
+                                    <h4 class="font-medium text-info">慢SQL检测</h4>
+                                    <span class="text-xs text-gray-500">1小时前</span>
+                                </div>
+                                <p class="text-sm text-gray-700 mt-1">检测到新的慢SQL (SQLID: SQL98765)，平均执行耗时8.9秒，已自动记录并分析</p>
+                                <div class="mt-2 flex gap-2">
+                                    <button class="text-xs bg-info/10 text-info px-3 py-1 rounded hover:bg-info/20 transition-colors">
+                                        <i class="fa fa-search mr-1"></i>优化建议
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 恢复告警 -->
+                        <div class="alert-item alert-success">
+                            <i class="fa fa-check-circle text-success mt-1 mr-3"></i>
+                            <div class="flex-1">
+                                <div class="flex justify-between">
+                                    <h4 class="font-medium text-success">磁盘IO恢复正常</h4>
+                                    <span class="text-xs text-gray-500">2小时前</span>
+                                </div>
+                                <p class="text-sm text-gray-700 mt-1">磁盘IO使用率已从95%降至正常水平(45%)，告警已自动清除</p>
+                            </div>
+                        </div>
+                        
+                        <!-- 预测告警 -->
+                        <div class="alert-item alert-warning">
+                            <i class="fa fa-calendar-warning-o text-warning mt-1 mr-3"></i>
+                            <div class="flex-1">
+                                <div class="flex justify-between">
+                                    <h4 class="font-medium text-warning">磁盘容量预测告警</h4>
+                                    <span class="text-xs text-gray-500">1天前</span>
+                                </div>
+                                <p class="text-sm text-gray-700 mt-1">基于趋势分析，/data分区将在15天后达到85%阈值，建议提前扩容</p>
+                                <div class="mt-2 flex gap-2">
+                                    <button class="text-xs bg-warning/10 text-warning px-3 py-1 rounded hover:bg-warning/20 transition-colors">
+                                        <i class="fa fa-download mr-1"></i>容量规划报告
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 根因分析 -->
+                <div>
+                    <h3 class="font-semibold mb-3 text-gray-700">智能根因分析</h3>
+                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 h-96 overflow-y-auto">
+                        <div class="mb-4 pb-4 border-b border-gray-200">
+                            <h4 class="font-medium text-primary mb-2">内存使用率过高 根因分析</h4>
+                            <div class="text-sm space-y-2 text-gray-700">
+                                <p><strong>主要原因：</strong></p>
+                                <ol class="list-decimal list-inside pl-2 space-y-1">
+                                    <li>订单系统慢SQL (SQL98765) 执行时间过长，导致结果集缓存占用大量内存</li>
+                                    <li>数据库连接数过高 (896个活跃连接)，每个连接占用约15MB内存</li>
+                                    <li>InnoDB缓冲池设置过大 (10GB)，导致系统可用内存不足</li>
+                                </ol>
+                                
+                                <p class="mt-2"><strong>解决方案：</strong></p>
+                                <ul class="list-disc list-inside pl-2 space-y-1">
+                                    <li>优化慢SQL (SQL98765)，添加合适索引减少执行时间</li>
+                                    <li>调整订单系统连接池参数，最大连接数从1000降至800</li>
+                                    <li>临时调整InnoDB缓冲池至8GB，观察内存使用情况</li>
+                                    <li>开启数据库内存自动清理机制，定期释放缓存</li>
+                                </ul>
+                                
+                                <p class="mt-2"><strong>自动修复建议：</strong></p>
+                                <button class="text-xs bg-primary text-white px-3 py-1 rounded hover:bg-primary/90 transition-colors mt-2">
+                                    <i class="fa fa-wrench mr-1"></i>执行自动修复
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h4 class="font-medium text-primary mb-2">告警降噪统计</h4>
+                            <div class="text-sm space-y-3 text-gray-700">
+                                <div class="flex justify-between items-center">
+                                    <span>原始告警数量</span>
+                                    <span class="font-medium">128</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span>聚合后告警数量</span>
+                                    <span class="font-medium text-success">5</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span>降噪率</span>
+                                    <span class="font-medium text-success">96.1%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                    <div class="bg-success h-2 rounded-full" style="width: 96.1%"></div>
+                                </div>
+                                
+                                <p class="mt-3 text-xs text-gray-500">
+                                    <i class="fa fa-info-circle mr-1"></i> 基于机器学习算法，将同一根因产生的123个衍生告警聚合为5个核心告警，有效避免告警风暴
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分布式链路追踪 -->
+        <div class="card">
+            <h2 class="text-xl font-bold mb-4 flex items-center">
+                <i class="fa fa-link text-primary mr-2"></i>分布式链路追踪
+            </h2>
+            
+            <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 mb-4">
+                <div class="flex flex-wrap gap-4 items-center">
+                    <div class="flex items-center">
+                        <label class="mr-2 text-sm font-medium text-gray-700">Trace ID:</label>
+                        <input type="text" value="TR-8976543210" class="px-3 py-1 border border-gray-300 rounded-lg text-sm w-48">
+                    </div>
+                    <div class="flex items-center">
+                        <label class="mr-2 text-sm font-medium text-gray-700">耗时:</label>
+                        <span class="text-danger font-medium text-sm">8.9s</span>
+                    </div>
+                    <div class="flex items-center">
+                        <label class="mr-2 text-sm font-medium text-gray-700">状态:</label>
+                        <span class="text-danger text-sm px-2 py-0.5 rounded-full bg-red-100">异常</span>
+                    </div>
+                    <button class="ml-auto btn-primary text-sm px-4 py-1">
+                        <i class="fa fa-search mr-1"></i>搜索
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 链路可视化 -->
+            <div class="relative h-64 border border-gray-200 rounded-lg bg-white overflow-hidden">
+                <!-- 简化的链路图 -->
+                <div class="absolute top-1/2 left-4 right-4 -translate-y-1/2 flex items-center justify-between">
+                    <!-- 前端 -->
+                    <div class="text-center w-24">
+                        <div class="w-16 h-16 mx-auto bg-blue-50 rounded-full flex items-center justify-center mb-2">
+                            <i class="fa fa-desktop text-primary text-xl"></i>
+                        </div>
+                        <h4 class="text-sm font-medium">前端页面</h4>
+                        <p class="text-xs text-gray-500">50ms</p>
+                    </div>
+                    
+                    <div class="flex-1 h-0.5 bg-gray-200 relative">
+                        <div class="absolute top-1/2 left-0 right-0 flex justify-between -translate-y-1/2 px-8">
+                            <i class="fa fa-long-arrow-right text-gray-400"></i>
+                            <i class="fa fa-long-arrow-right text-gray-400"></i>
+                            <i class="fa fa-long-arrow-right text-gray-400"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- API网关 -->
+                    <div class="text-center w-24">
+                        <div class="w-16 h-16 mx-auto bg-blue-50 rounded-full flex items-center justify-center mb-2">
+                            <i class="fa fa-exchange text-primary text-xl"></i>
+                        </div>
+                        <h4 class="text-sm font-medium">API网关</h4>
+                        <p class="text-xs text-gray-500">120ms</p>
+                    </div>
+                    
+                    <div class="flex-1 h-0.5 bg-gray-200 relative">
+                        <div class="absolute top-1/2 left-0 right-0 flex justify-between -translate-y-1/2 px-8">
+                            <i class="fa fa-long-arrow-right text-gray-400"></i>
+                            <i class="fa fa-long-arrow-right text-gray-400"></i>
+                            <i class="fa fa-long-arrow-right text-gray-400"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- 订单服务 -->
+                    <div class="text-center w-24">
+                        <div class="w-16 h-16 mx-auto bg-red-50 rounded-full flex items-center justify-center mb-2">
+                            <i class="fa fa-shopping-cart text-danger text-xl"></i>
+                        </div>
+                        <h4 class="text-sm font-medium">订单服务</h4>
+                        <p class="text-xs text-danger font-medium">8.5s</p>
+                    </div>
+                    
+                    <div class="flex-1 h-0.5 bg-gray-200 relative">
+                        <div class="absolute top-1/2 left-0 right-0 flex justify-between -translate-y-1/2 px-8">
+                            <i class="fa fa-long-arrow-right text-gray-400"></i>
+                            <i class="fa fa-long-arrow-right text-gray-400"></i>
+                            <i class="fa fa-long-arrow-right text-gray-400"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- 数据库 -->
+                    <div class="text-center w-24">
+                        <div class="w-16 h-16 mx-auto bg-red-50 rounded-full flex items-center justify-center mb-2">
+                            <i class="fa fa-database text-danger text-xl"></i>
+                        </div>
+                        <h4 class="text-sm font-medium">数据库</h4>
+                        <p class="text-xs text-danger font-medium">8.2s</p>
+                    </div>
+                </div>
+                
+                <!-- 性能瓶颈标记 -->
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-danger text-white text-xs px-3 py-1 rounded-full">
+                    性能瓶颈
+                </div>
+            </div>
+            
+            <div class="mt-4 p-4 bg-red-50 border border-red-100 rounded-lg">
+                <div class="flex items-start">
+                    <i class="fa fa-exclamation-circle text-danger mt-1 mr-2"></i>
+                    <div>
+                        <p class="font-medium text-danger">链路分析结果</p>
+                        <p class="text-sm text-gray-700 mt-1">订单创建接口响应时间8.9秒，主要耗时在数据库查询阶段(8.2秒)。定位到具体慢SQL: <span class="font-mono text-xs bg-white px-1 rounded">SELECT * FROM orders WHERE user_id = ?</span>，缺少user_id索引导致全表扫描。</p>
+                        <button class="mt-2 text-primary text-sm font-medium hover:underline">
+                            <i class="fa fa-code mr-1"></i>查看完整SQL与优化建议
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-white mt-16 py-8 border-t border-gray-200">
+        <div class="container mx-auto px-4 text-center text-gray-600">
+            <p>© 2026 智能数据库管理平台 - 一站式智能数据库全生命周期管理解决方案</p>
+        </div>
+    </footer>
+
+    <!-- 图表初始化脚本 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化小型环形图
+            const createDoughnutChart = (id, value, color) => {
+                const ctx = document.getElementById(id).getContext('2d');
+                return new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        datasets: [{
+                            data: [value, 100 - value],
+                            backgroundColor: [color, '#f3f4f6'],
+                            borderWidth: 0,
+                            cutout: '80%'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: false }
+                        }
+                    }
+                });
+            };
+
+            // CPU使用率图表
+            createDoughnutChart('cpuChart', 68, '#FF7D00');
+            // 内存使用率图表
+            createDoughnutChart('memChart', 89, '#F53F3F');
+            // 磁盘使用率图表
+            createDoughnutChart('diskChart', 42, '#165DFF');
+
+            // 资源监控曲线 (CPU & 内存)
+            const resourceCtx = document.getElementById('resourceChart').getContext('2d');
+            const hours = Array.from({length: 24}, (_, i) => `${i}:00`);
+            const cpuData = [35, 32, 30, 28, 31, 35, 45, 55, 60, 65, 70, 75, 78, 75, 70, 68, 72, 75, 70, 65, 60, 55, 48, 40];
+            const memData = [70, 72, 71, 70, 73, 75, 78, 80, 82, 85, 88, 90, 92, 90, 89, 88, 89, 90, 88, 87, 85, 83, 80, 78];
+
+            new Chart(resourceCtx, {
+                type: 'line',
+                data: {
+                    labels: hours,
+                    datasets: [
+                        {
+                            label: 'CPU使用率 (%)',
+                            data: cpuData,
+                            borderColor: '#FF7D00',
+                            backgroundColor: 'rgba(255, 125, 0, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: '内存使用率 (%)',
+                            data: memData,
+                            borderColor: '#F53F3F',
+                            backgroundColor: 'rgba(245, 63, 63, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: '使用率 (%)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '时间'
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+
+            // IO监控曲线
+            const ioCtx = document.getElementById('ioChart').getContext('2d');
+            const diskRead = [100, 120, 90, 80, 110, 150, 200, 250, 300, 280, 250, 300, 350, 320, 280, 250, 220, 200, 180, 150, 130, 110, 90, 80];
+            const diskWrite = [80, 90, 70, 60, 80, 120, 180, 220, 250, 230, 200, 250, 300, 280, 240, 200, 180, 160, 140, 120, 100, 80, 70, 60];
+            const networkIn = [50, 60, 55, 50, 65, 80, 100, 120, 150, 140, 130, 160, 180, 170, 150, 130, 110, 100, 90, 80, 70, 60, 55, 50];
+            const networkOut = [30, 40, 35, 30, 45, 60, 80, 90, 110, 100, 90, 110, 130, 120, 110, 90, 80, 70, 60, 50, 40, 35, 30, 25];
+
+            new Chart(ioCtx, {
+                type: 'line',
+                data: {
+                    labels: hours,
+                    datasets: [
+                        {
+                            label: '磁盘读 (MB/s)',
+                            data: diskRead,
+                            borderColor: '#165DFF',
+                            backgroundColor: 'transparent',
+                            tension: 0.4
+                        },
+                        {
+                            label: '磁盘写 (MB/s)',
+                            data: diskWrite,
+                            borderColor: '#4080FF',
+                            backgroundColor: 'transparent',
+                            tension: 0.4
+                        },
+                        {
+                            label: '网络入 (MB/s)',
+                            data: networkIn,
+                            borderColor: '#00B42A',
+                            backgroundColor: 'transparent',
+                            tension: 0.4
+                        },
+                        {
+                            label: '网络出 (MB/s)',
+                            data: networkOut,
+                            borderColor: '#86909C',
+                            backgroundColor: 'transparent',
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '速度 (MB/s)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '时间'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 容量预测图表
+            const predictCtx = document.getElementById('predictChart').getContext('2d');
+            const days = Array.from({length: 45}, (_, i) => `Day ${i+1}`);
+            // 实际数据 (前30天)
+            const actualData = Array.from({length: 30}, (_, i) => 30 + (i * 0.4));
+            // 预测数据 (后15天)
+            const predictData = Array.from({length: 15}, (_, i) => 42 + (i * 1.53));
+            // 合并数据
+            const allData = [...actualData, ...predictData];
+            
+            new Chart(predictCtx, {
+                type: 'line',
+                data: {
+                    labels: days,
+                    datasets: [
+                        {
+                            label: '磁盘使用率 (%)',
+                            data: allData,
+                            borderColor: '#165DFF',
+                            backgroundColor: 'rgba(22, 93, 255, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: '预警阈值 (85%)',
+                            data: Array(45).fill(85),
+                            borderColor: '#F53F3F',
+                            borderDash: [5, 5],
+                            backgroundColor: 'transparent',
+                            fill: false,
+                            tension: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        annotation: {
+                            annotations: {
+                                line1: {
+                                    type: 'line',
+                                    xMin: 30,
+                                    xMax: 30,
+                                    borderColor: 'rgb(255, 99, 132)',
+                                    borderWidth: 2,
+                                    borderDash: [2, 2],
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: '磁盘使用率 (%)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '天数'
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

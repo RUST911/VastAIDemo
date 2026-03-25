@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能迁移模块 - 智能数据库管理平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#4080FF',
+                        neutral: '#F5F7FA',
+                        dark: '#1D2129',
+                        light: '#C9CDD4',
+                        success: '#00B42A',
+                        warning: '#FF7D00',
+                        danger: '#F53F3F',
+                        info: '#86909C'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-primary {
+                @apply bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors;
+            }
+            .card {
+                @apply bg-white rounded-xl shadow-md border border-gray-100 p-6;
+            }
+            .migration-step {
+                @apply relative pl-8 pb-8 last:pb-0;
+            }
+            .migration-step::before {
+                @apply absolute left-0 top-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-sm font-bold;
+                content: attr(data-step);
+            }
+            .step-active::before {
+                @apply bg-primary;
+            }
+            .step-completed::before {
+                @apply bg-success;
+                content: "✓";
+            }
+            .step-pending::before {
+                @apply bg-gray-300;
+            }
+            .migration-step::after {
+                @apply absolute left-3 top-6 bottom-0 w-0.5 bg-gray-200 last:hidden;
+                content: "";
+            }
+            .code-block {
+                @apply bg-gray-900 text-gray-300 p-3 rounded-md font-mono text-xs overflow-x-auto;
+            }
+            .test-case-item {
+                @apply border border-gray-200 rounded-lg p-3 mb-3 hover:shadow-sm transition-shadow;
+            }
+            .validation-result {
+                @apply flex items-center gap-2 px-2 py-1 rounded text-xs font-medium;
+            }
+            .result-match {
+                @apply bg-green-50 text-success border border-green-200;
+            }
+            .result-mismatch {
+                @apply bg-red-50 text-danger border border-red-200;
+            }
+            .result-pending {
+                @apply bg-gray-50 text-gray-600 border border-gray-200;
+            }
+        }
+    </style>
+</head>
+<body class="bg-neutral min-h-screen">
+    <!-- 顶部导航 -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <a href="index.html" class="text-primary text-xl"><i class="fa fa-arrow-left"></i></a>
+                <h1 class="text-xl font-bold text-primary">智能迁移模块</h1>
+            </div>
+            <div class="flex gap-3 items-center">
+                <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                    <i class="fa fa-history mr-2"></i>迁移历史
+                </button>
+                <button class="btn-primary">
+                    <i class="fa fa-play-circle mr-2"></i>开始迁移
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- 迁移任务配置 -->
+        <div class="card mb-8">
+            <h2 class="text-xl font-bold mb-6 flex items-center">
+                <i class="fa fa-cogs text-primary mr-2"></i>迁移任务配置
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- 源端配置 -->
+                <div>
+                    <h3 class="font-semibold text-lg mb-4 text-gray-800">源数据库配置</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">数据库类型</label>
+                            <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option selected>Oracle 19c</option>
+                                <option>MySQL 8.0</option>
+                                <option>SQL Server 2019</option>
+                                <option>PostgreSQL 14</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">主机地址</label>
+                                <input type="text" value="192.168.1.100" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">端口</label>
+                                <input type="text" value="1521" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+                                <input type="text" value="system" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+                                <input type="password" value="********" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">服务名/SID</label>
+                            <input type="text" value="ORCLCDB" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">迁移范围</label>
+                            <div class="space-y-2">
+                                <label class="flex items-center">
+                                    <input type="checkbox" checked class="mr-2">
+                                    <span>全库迁移</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" class="mr-2">
+                                    <span>指定模式/表空间</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" checked class="mr-2">
+                                    <span>包含存储过程/函数</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" checked class="mr-2">
+                                    <span>包含触发器/索引</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="flex justify-end">
+                            <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                                <i class="fa fa-check mr-2"></i>测试连接
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 目标端配置 -->
+                <div>
+                    <h3 class="font-semibold text-lg mb-4 text-gray-800">目标数据库配置</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">数据库类型</label>
+                            <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option>MySQL 8.0</option>
+                                <option>PostgreSQL 14</option>
+                                <option selected>vastbase</option>
+                                <option>达梦 8</option>
+                                <option>人大金仓</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">主机地址</label>
+                                <input type="text" value="192.168.1.101" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">端口</label>
+                                <input type="text" value="5236" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">用户名</label>
+                                <input type="text" value="SYSDBA" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+                                <input type="password" value="********" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">数据库名</label>
+                            <input type="text" value="DM8" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">迁移策略</label>
+                            <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option selected>全量迁移</option>
+                                <option>增量迁移</option>
+                                <option>增量同步 (CDC)</option>
+                                <option>分批次迁移</option>
+                            </select>
+                        </div>
+                        <div class="flex justify-end">
+                            <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                                <i class="fa fa-check mr-2"></i>测试连接
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 高级配置 -->
+            <div class="mt-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold text-lg text-gray-800">高级配置</h3>
+                    <button class="text-primary text-sm hover:underline">
+                        <i class="fa fa-cog mr-1"></i>默认配置
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">并行迁移线程数</label>
+                        <input type="number" value="8" min="1" max="32" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">批量提交大小</label>
+                        <input type="number" value="1000" min="100" max="10000" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">超时时间(秒)</label>
+                        <input type="number" value="300" min="60" max="3600" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">数据一致性校验</label>
+                        <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option selected>全量校验 (MD5)</option>
+                            <option>抽样校验 (10%)</option>
+                            <option>行数校验</option>
+                            <option>不校验</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">异常处理策略</label>
+                        <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                            <option selected>暂停迁移，人工介入</option>
+                            <option>跳过错误，继续迁移</option>
+                            <option>重试3次后跳过</option>
+                            <option>终止迁移，回滚数据</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 智能SQL改写 -->
+        <div class="card mb-8">
+            <h2 class="text-xl font-bold mb-6 flex items-center">
+                <i class="fa fa-code text-primary mr-2"></i>智能SQL改写
+            </h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <!-- 源SQL -->
+                <div>
+                    <h3 class="font-semibold mb-3 text-gray-800">源SQL (Oracle)</h3>
+                    <div class="bg-gray-100 rounded-lg p-4 h-64 overflow-auto">
+                        <pre class="font-mono text-xs text-gray-800">
+-- 员工层级查询
+SELECT 
+    empno, 
+    ename, 
+    mgr,
+    LEVEL,
+    CONNECT_BY_ROOT ename AS top_manager
+FROM emp
+START WITH mgr IS NULL
+CONNECT BY PRIOR empno = mgr
+ORDER SIBLINGS BY ename;
+
+-- 分页查询
+SELECT * FROM (
+    SELECT a.*, ROWNUM rn FROM (
+        SELECT empno, ename, sal, deptno
+        FROM emp
+        WHERE deptno = 10
+        ORDER BY sal DESC
+    ) a
+    WHERE ROWNUM <= 20
+) WHERE rn >= 10;
+
+-- 自定义聚合函数
+SELECT 
+    deptno,
+    STRAGG(ename) AS emp_list
+FROM emp
+GROUP BY deptno;
+                        </pre>
+                    </div>
+                </div>
+                
+                <!-- 目标SQL -->
+                <div>
+                    <h3 class="font-semibold mb-3 text-gray-800">目标SQL (vastbase) - 智能生成</h3>
+                    <div class="bg-primary/5 rounded-lg p-4 h-64 overflow-auto border-l-4 border-primary">
+                        <pre class="font-mono text-xs text-gray-800">
+-- 员工层级查询 (自动转换)
+WITH RECURSIVE emp_hierarchy (empno, ename, mgr, level, top_manager) AS (
+    SELECT 
+        empno, 
+        ename, 
+        mgr,
+        1,
+        ename AS top_manager
+    FROM emp
+    WHERE mgr IS NULL
+    UNION ALL
+    SELECT 
+        e.empno, 
+        e.ename, 
+        e.mgr,
+        eh.level + 1,
+        eh.top_manager
+    FROM emp e
+    JOIN emp_hierarchy eh ON e.mgr = eh.empno
+)
+SELECT empno, ename, mgr, level, top_manager
+FROM emp_hierarchy
+ORDER BY level, ename;
+
+-- 分页查询 (自动转换)
+SELECT empno, ename, sal, deptno
+FROM emp
+WHERE deptno = 10
+ORDER BY sal DESC
+LIMIT 10 OFFSET 9;
+
+-- 自定义聚合函数 (自动转换)
+SELECT 
+    deptno,
+    LISTAGG(ename, ',') WITHIN GROUP (ORDER BY ename) AS emp_list
+FROM emp
+GROUP BY deptno;
+                        </pre>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- SQL改写规则与统计 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="font-semibold mb-3 text-gray-800">SQL改写规则</h3>
+                    <div class="space-y-2 text-sm">
+                        <div class="bg-gray-50 p-2 rounded">
+                            <span class="font-medium">层级查询</span>：CONNECT BY → WITH RECURSIVE 递归CTE
+                        </div>
+                        <div class="bg-gray-50 p-2 rounded">
+                            <span class="font-medium">分页语法</span>：ROWNUM → LIMIT/OFFSET
+                        </div>
+                        <div class="bg-gray-50 p-2 rounded">
+                            <span class="font-medium">函数转换</span>：STRAGG → LISTAGG，SYSDATE → CURRENT_TIMESTAMP
+                        </div>
+                        <div class="bg-gray-50 p-2 rounded">
+                            <span class="font-medium">数据类型</span>：NUMBER → DECIMAL，VARCHAR2 → VARCHAR
+                        </div>
+                        <div class="bg-gray-50 p-2 rounded">
+                            <span class="font-medium">运算符</span>：|| → CONCAT，NVL → IFNULL
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="font-semibold mb-3 text-gray-800">改写统计</h3>
+                    <div class="h-40">
+                        <canvas id="sqlRewriteChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 批量改写操作 -->
+            <div class="mt-6 flex justify-between items-center">
+                <div>
+                    <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors mr-2">
+                        <i class="fa fa-upload mr-2"></i>导入SQL文件
+                    </button>
+                    <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                        <i class="fa fa-download mr-2"></i>导出改写后SQL
+                    </button>
+                </div>
+                <button class="btn-primary px-6 py-2">
+                    <i class="fa fa-magic mr-2"></i>批量智能改写
+                </button>
+            </div>
+        </div>
+
+        <!-- 迁移执行管理 -->
+        <div class="card mb-8">
+            <h2 class="text-xl font-bold mb-6 flex items-center">
+                <i class="fa fa-tasks text-primary mr-2"></i>迁移执行管理
+            </h2>
+            
+            <!-- 迁移进度 -->
+            <div class="mb-6">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="font-semibold text-gray-800">迁移进度 (85%)</h3>
+                    <span class="text-sm text-gray-500">预计剩余时间：15分钟</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
+                    <div class="bg-primary h-2.5 rounded-full" style="width: 85%"></div>
+                </div>
+                
+                <!-- 迁移步骤 -->
+                <div class="space-y-2">
+                    <div class="migration-step step-completed" data-step="1">
+                        <h4 class="font-medium">源库连接验证</h4>
+                        <p class="text-sm text-gray-600 mt-1">已成功连接到Oracle 19c数据库，版本验证通过</p>
+                    </div>
+                    <div class="migration-step step-completed" data-step="2">
+                        <h4 class="font-medium">目标库连接验证</h4>
+                        <p class="text-sm text-gray-600 mt-1">已成功连接到vastbase数据库，权限验证通过</p>
+                    </div>
+                    <div class="migration-step step-completed" data-step="3">
+                        <h4 class="font-medium">结构解析与转换</h4>
+                        <p class="text-sm text-gray-600 mt-1">已解析1256张表结构，完成98%的结构转换</p>
+                    </div>
+                    <div class="migration-step step-active" data-step="4">
+                        <h4 class="font-medium">数据迁移 (多线程)</h4>
+                        <p class="text-sm text-gray-600 mt-1">8个并行线程正在迁移数据，已完成85%，当前迁移emp表</p>
+                    </div>
+                    <div class="migration-step step-pending" data-step="5">
+                        <h4 class="font-medium">索引与约束创建</h4>
+                        <p class="text-sm text-gray-600 mt-1">等待数据迁移完成</p>
+                    </div>
+                    <div class="migration-step step-pending" data-step="6">
+                        <h4 class="font-medium">数据一致性校验</h4>
+                        <p class="text-sm text-gray-600 mt-1">等待索引创建完成</p>
+                    </div>
+                    <div class="migration-step step-pending" data-step="7">
+                        <h4 class="font-medium">迁移完成确认</h4>
+                        <p class="text-sm text-gray-600 mt-1">等待校验完成</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 迁移控制 -->
+            <div class="flex gap-3 mb-6">
+                <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                    <i class="fa fa-pause mr-2"></i>暂停迁移
+                </button>
+                <button class="bg-warning text-white px-4 py-2 rounded-lg hover:bg-warning/90 transition-colors">
+                    <i class="fa fa-step-forward mr-2"></i>跳过当前表
+                </button>
+                <button class="bg-danger text-white px-4 py-2 rounded-lg hover:bg-danger/90 transition-colors">
+                    <i class="fa fa-stop mr-2"></i>终止迁移
+                </button>
+                <button class="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 transition-colors ml-auto">
+                    <i class="fa fa-backup mr-2"></i>一键备份
+                </button>
+                <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                    <i class="fa fa-undo mr-2"></i>回滚数据
+                </button>
+            </div>
+            
+            <!-- 智能诊断与异常预警 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- 智能诊断 -->
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <h3 class="font-semibold mb-3 flex items-center text-gray-800">
+                        <i class="fa fa-stethoscope text-primary mr-2"></i>智能诊断
+                    </h3>
+                    <div class="space-y-3 text-sm">
+                        <div class="bg-white p-3 rounded border border-gray-200">
+                            <div class="font-medium text-danger">当前诊断到的异常 (2个)</div>
+                            <div class="mt-2 space-y-2">
+                                <div>
+                                    <span class="font-medium">异常1：</span>emp表sal字段数据类型转换失败
+                                    <div class="mt-1 pl-4">
+                                        <p>根因分析：Oracle NUMBER(8,2) 转换为vastbase DECIMAL 时精度溢出</p>
+                                        <p class="text-success mt-1">修复方案：调整目标表字段为 DECIMAL(10,2)，重新执行该表迁移</p>
+                                        <button class="text-primary text-xs hover:underline mt-1">
+                                            <i class="fa fa-play mr-1"></i>从当前异常处继续迁移
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="font-medium">异常2：</span>存储过程 P_GET_EMP_SAL 语法不兼容
+                                    <div class="mt-1 pl-4">
+                                        <p>根因分析：PL/SQL 游标语法与vastbase不兼容</p>
+                                        <p class="text-success mt-1">修复方案：自动转换游标语法为vastbase兼容格式，生成改写脚本</p>
+                                        <button class="text-primary text-xs hover:underline mt-1">
+                                            <i class="fa fa-magic mr-1"></i>自动修复并继续
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-primary/5 p-3 rounded border border-primary/20">
+                            <p class="text-sm">✅ 迁移进程已暂停，保存当前状态（已迁移1024/1256张表）</p>
+                            <p class="text-xs text-gray-600 mt-1">修复异常后可直接从emp表继续迁移，无需从头开始</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 异常预警 -->
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <h3 class="font-semibold mb-3 flex items-center text-gray-800">
+                        <i class="fa fa-exclamation-triangle text-warning mr-2"></i>异常预警
+                    </h3>
+                    <div class="space-y-3 text-sm">
+                        <div class="bg-white p-3 rounded border border-gray-200">
+                            <div class="font-medium text-warning">数据合规性检测结果</div>
+                            <div class="mt-2 space-y-2">
+                                <div class="flex items-start">
+                                    <i class="fa fa-user-secret text-danger mt-1 mr-2"></i>
+                                    <div>
+                                        <p>检测到customer表中包含未脱敏的手机号字段 (phone)</p>
+                                        <p class="text-xs text-gray-600 mt-1">涉及记录数：12,589 条</p>
+                                        <button class="text-primary text-xs hover:underline mt-1">
+                                            <i class="fa fa-shield mr-1"></i>一键脱敏处理
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="flex items-start">
+                                    <i class="fa fa-user-secret text-danger mt-1 mr-2"></i>
+                                    <div>
+                                        <p>检测到order表中包含身份证号字段 (id_card) 明文存储</p>
+                                        <p class="text-xs text-gray-600 mt-1">涉及记录数：8,745 条</p>
+                                        <button class="text-primary text-xs hover:underline mt-1">
+                                            <i class="fa fa-shield mr-1"></i>一键脱敏处理
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-warning/5 p-3 rounded border border-warning/20">
+                            <p class="text-sm">⚠️ 敏感数据未脱敏，建议先处理再继续迁移</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 迁移日志 -->
+            <div>
+                <h3 class="font-semibold mb-3 text-gray-800">迁移执行日志</h3>
+                <div class="bg-gray-900 text-gray-300 p-4 rounded-md font-mono text-xs h-64 overflow-auto">
+                    <pre>
+2026-03-19 10:00:00 [INFO] 开始迁移任务: Oracle → vastbase
+2026-03-19 10:00:05 [INFO] 源库连接成功: 192.168.1.100:1521/ORCLCDB
+2026-03-19 10:00:08 [INFO] 目标库连接成功: 192.168.1.101:5236/DM8
+2026-03-19 10:00:10 [INFO] 开始解析源库结构，共1256张表
+2026-03-19 10:05:30 [INFO] 结构解析完成，开始转换表结构
+2026-03-19 10:10:25 [INFO] 表结构转换完成，创建目标库表结构
+2026-03-19 10:15:40 [INFO] 启动8个并行迁移线程
+2026-03-19 10:15:45 [INFO] 线程1开始迁移dept表，共4条记录
+2026-03-19 10:15:45 [INFO] 线程2开始迁移emp表，共14条记录
+2026-03-19 10:15:46 [INFO] 线程3开始迁移salgrade表，共5条记录
+2026-03-19 10:15:47 [SUCCESS] 线程1完成dept表迁移，4条记录
+2026-03-19 10:15:48 [SUCCESS] 线程3完成salgrade表迁移，5条记录
+2026-03-19 10:15:50 [INFO] 线程1开始迁移bonus表，共0条记录
+2026-03-19 10:15:52 [ERROR] 线程2迁移emp表失败: 数据类型转换错误
+2026-03-19 10:15:53 [INFO] 迁移进程暂停，保存当前状态
+2026-03-19 10:15:54 [DIAGNOSIS] 根因分析: sal字段 NUMBER(8,2) 精度溢出
+2026-03-19 10:15:55 [SOLUTION] 修复方案: 调整目标字段为 DECIMAL(10,2)
+2026-03-19 10:15:56 [WARNING] 检测到customer表存在未脱敏手机号数据
+2026-03-19 10:15:57 [INFO] 已迁移表数量: 1024/1256 (81.5%)
+                    </pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- 智能测试用例生成与回归验证 -->
+        <div class="card mb-8">
+            <h2 class="text-xl font-bold mb-6 flex items-center">
+                <i class="fa fa-vial text-primary mr-2"></i>智能测试用例生成与回归验证
+            </h2>
+            
+            <!-- 测试用例生成配置 -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <h3 class="font-semibold mb-3 text-gray-800">测试用例生成范围</h3>
+                    <div class="space-y-2 text-sm">
+                        <label class="flex items-center">
+                            <input type="checkbox" checked class="mr-2">
+                            <span>全量功能测试用例</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" checked class="mr-2">
+                            <span>边界测试用例 (空值/极值)</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" checked class="mr-2">
+                            <span>性能压测用例 (高并发)</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" class="mr-2">
+                            <span>仅生成核心表测试用例</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" checked class="mr-2">
+                            <span>基于生产慢查询日志生成</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" checked class="mr-2">
+                            <span>基于高频SQL日志生成</span>
+                        </label>
+                    </div>
+                    <button class="btn-primary w-full mt-4 py-2">
+                        <i class="fa fa-magic mr-2"></i>AI生成测试用例
+                    </button>
+                </div>
+                
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <h3 class="font-semibold mb-3 text-gray-800">测试执行配置</h3>
+                    <div class="space-y-4 text-sm">
+                        <div>
+                            <label class="block text-gray-700 mb-1">并发用户数</label>
+                            <input type="number" value="50" min="1" max="1000" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-1">执行时长 (秒)</label>
+                            <input type="number" value="300" min="60" max="3600" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-1">校验维度</label>
+                            <div class="space-y-1 mt-1">
+                                <label class="flex items-center">
+                                    <input type="checkbox" checked class="mr-2">
+                                    <span>返回结果一致性</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" checked class="mr-2">
+                                    <span>执行耗时对比</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" checked class="mr-2">
+                                    <span>数据行数一致性</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" checked class="mr-2">
+                                    <span>字段值精度校验</span>
+                                </label>
+                            </div>
+                        </div>
+                        <button class="bg-success text-white w-full mt-4 py-2 rounded-lg hover:bg-success/90 transition-colors">
+                            <i class="fa fa-play mr-2"></i>执行回归验证
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <h3 class="font-semibold mb-3 text-gray-800">验证进度</h3>
+                    <div class="flex items-center justify-center h-32">
+                        <div class="text-center">
+                            <div class="text-3xl font-bold text-primary">78%</div>
+                            <div class="text-sm text-gray-600 mt-1">测试用例执行中</div>
+                            <div class="text-xs text-gray-500 mt-2">预计剩余：8分钟</div>
+                        </div>
+                    </div>
+                    <div class="mt-4 space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span>已执行用例数</span>
+                            <span class="font-medium">1,245 / 1,600</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>通过用例数</span>
+                            <span class="font-medium text-success">1,189</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>失败用例数</span>
+                            <span class="font-medium text-danger">56</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>平均执行耗时对比</span>
+                            <span class="font-medium">+12%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 测试用例列表 -->
+            <div class="mb-6">
+                <h3 class="font-semibold mb-4 text-gray-800">生成的测试用例列表</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">ID</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用例名称</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用例类型</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">关联表</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">执行状态</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200 text-sm">
+                            <tr>
+                                <td class="px-4 py-3 whitespace-nowrap">TC001</td>
+                                <td class="px-4 py-3 whitespace-nowrap">员工信息查询-正常参数</td>
+                                <td class="px-4 py-3 whitespace-nowrap">功能测试</td>
+                                <td class="px-4 py-3 whitespace-nowrap">emp</td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="validation-result result-match">
+                                        <i class="fa fa-check"></i> 结果匹配
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <button class="text-primary text-xs hover:underline">查看详情</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 whitespace-nowrap">TC002</td>
+                                <td class="px-4 py-3 whitespace-nowrap">员工薪资查询-边界值</td>
+                                <td class="px-4 py-3 whitespace-nowrap">边界测试</td>
+                                <td class="px-4 py-3 whitespace-nowrap">emp, salgrade</td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="validation-result result-match">
+                                        <i class="fa fa-check"></i> 结果匹配
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <button class="text-primary text-xs hover:underline">查看详情</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 whitespace-nowrap">TC003</td>
+                                <td class="px-4 py-3 whitespace-nowrap">部门员工统计-空值参数</td>
+                                <td class="px-4 py-3 whitespace-nowrap">边界测试</td>
+                                <td class="px-4 py-3 whitespace-nowrap">emp, dept</td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="validation-result result-mismatch">
+                                        <i class="fa fa-times"></i> 结果不匹配
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <button class="text-primary text-xs hover:underline">查看差异</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 whitespace-nowrap">TC004</td>
+                                <td class="px-4 py-3 whitespace-nowrap">订单查询-高并发场景</td>
+                                <td class="px-4 py-3 whitespace-nowrap">性能测试</td>
+                                <td class="px-4 py-3 whitespace-nowrap">orders</td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="validation-result result-pending">
+                                        <i class="fa fa-spinner fa-spin"></i> 执行中
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <button class="text-gray-400 text-xs cursor-not-allowed">查看详情</button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 whitespace-nowrap">TC005</td>
+                                <td class="px-4 py-3 whitespace-nowrap">生产高频SQL-客户列表查询</td>
+                                <td class="px-4 py-3 whitespace-nowrap">回归测试</td>
+                                <td class="px-4 py-3 whitespace-nowrap">customer</td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="validation-result result-mismatch">
+                                        <i class="fa fa-times"></i> 耗时差异大
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <button class="text-primary text-xs hover:underline">查看差异</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- 测试结果对比与差异报告 -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- 源库vs目标库执行结果对比 -->
+                <div>
+                    <h3 class="font-semibold mb-3 text-gray-800">测试用例执行结果对比 (TC003)</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                            <div class="font-medium text-sm mb-2">源库 (Oracle) 执行结果</div>
+                            <div class="bg-white rounded p-2 text-xs font-mono h-40 overflow-auto">
+                                <pre>
+SELECT COUNT(*) FROM emp 
+WHERE deptno IS NULL;
+
+执行结果：
+COUNT(*)
+--------
+0
+
+执行耗时：0.002秒
+                                </pre>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                            <div class="font-medium text-sm mb-2">目标库 (vastbase) 执行结果</div>
+                            <div class="bg-white rounded p-2 text-xs font-mono h-40 overflow-auto">
+                                <pre>
+SELECT COUNT(*) FROM emp 
+WHERE deptno IS NULL;
+
+执行结果：
+COUNT(*)
+--------
+NULL
+
+执行耗时：0.005秒
+                                </pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4 bg-red-50 p-3 rounded-lg border border-red-200 text-sm">
+                        <div class="font-medium text-danger mb-1">差异分析</div>
+                        <p>vastbase数据库对 NULL 值的 COUNT(*) 统计逻辑与 Oracle 不同，Oracle 返回 0，vastbase返回 NULL</p>
+                        <p class="mt-2 text-success">修复建议：修改SQL为 COUNT(1) 或 NVL(COUNT(*), 0) 保证结果一致</p>
+                    </div>
+                </div>
+                
+                <!-- 回归验证统计图表 -->
+                <div>
+                    <h3 class="font-semibold mb-3 text-gray-800">回归验证统计</h3>
+                    <div class="h-64">
+                        <canvas id="validationChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 操作按钮 -->
+            <div class="mt-6 flex justify-between items-center">
+                <div>
+                    <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors mr-2">
+                        <i class="fa fa-download mr-2"></i>导出测试用例
+                    </button>
+                    <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                        <i class="fa fa-file-text-o mr-2"></i>导出差异报告
+                    </button>
+                </div>
+                <button class="btn-primary px-6 py-2">
+                    <i class="fa fa-refresh mr-2"></i>重新执行失败用例
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-white mt-16 py-8 border-t border-gray-200">
+        <div class="container mx-auto px-4 text-center text-gray-600">
+            <p>© 2026 智能数据库管理平台 - 一站式智能数据库全生命周期管理解决方案</p>
+        </div>
+    </footer>
+
+    <!-- 图表初始化脚本 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // SQL改写统计图表
+            const sqlRewriteCtx = document.getElementById('sqlRewriteChart').getContext('2d');
+            new Chart(sqlRewriteCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['成功转换', '需人工调整', '转换失败'],
+                    datasets: [{
+                        data: [85, 12, 3],
+                        backgroundColor: ['#00B42A', '#FF7D00', '#F53F3F'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' }
+                    }
+                }
+            });
+
+            // 回归验证统计图表
+            const validationCtx = document.getElementById('validationChart').getContext('2d');
+            new Chart(validationCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['功能测试', '边界测试', '性能测试', '回归测试'],
+                    datasets: [
+                        {
+                            label: '源库平均耗时(ms)',
+                            data: [8, 12, 250, 15],
+                            backgroundColor: '#165DFF'
+                        },
+                        {
+                            label: '目标库平均耗时(ms)',
+                            data: [10, 15, 320, 18],
+                            backgroundColor: '#4080FF'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top' }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: '耗时(ms)' } }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

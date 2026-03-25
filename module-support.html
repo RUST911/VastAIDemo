@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>报错答疑 - 智能数据库管理平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#4080FF',
+                        neutral: '#F5F7FA',
+                        dark: '#1D2129',
+                        light: '#C9CDD4',
+                        success: '#00B42A',
+                        warning: '#FF7D00',
+                        danger: '#F53F3F'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .btn-primary {
+                @apply bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors;
+            }
+            .card {
+                @apply bg-white rounded-xl shadow-md border border-gray-100 p-6;
+            }
+            .chat-bubble-user {
+                @apply bg-primary text-white rounded-lg rounded-tl-none p-4 max-w-[80%] ml-auto;
+            }
+            .chat-bubble-ai {
+                @apply bg-gray-100 text-gray-800 rounded-lg rounded-tr-none p-4 max-w-[80%];
+            }
+            .code-block {
+                @apply bg-gray-900 text-gray-300 p-3 rounded-md font-mono text-xs overflow-x-auto;
+            }
+        }
+    </style>
+</head>
+<body class="bg-neutral min-h-screen">
+    <!-- 顶部导航 -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <a href="index.html" class="text-primary text-xl"><i class="fa fa-arrow-left"></i></a>
+                <h1 class="text-xl font-bold text-primary">vastbase 智能助手 - 量仔</h1>
+            </div>
+            <div class="flex gap-2">
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- 问题提交表单 -->
+        <div class="card mb-8">
+            <div class="flex items-center mb-4">
+                <i class="fa fa-question-circle text-primary text-xl mr-2"></i>
+                <h2 class="text-xl font-bold">提交问题</h2>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">问题标题</label>
+                    <input type="text" id="issue-title" placeholder="请输入问题标题" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">问题类型</label>
+                    <select id="issue-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <option value="installation">安装升级问题</option>
+                        <option value="operation">运维问题</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">详细描述</label>
+                    <textarea id="issue-description" placeholder="请详细描述您遇到的问题..." 
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none" 
+                              rows="4"></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">上传报错信息</label>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center justify-center w-full h-48 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                            <label for="file-upload" class="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+                                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <i class="fa fa-cloud-upload text-primary text-3xl mb-3"></i>
+                                    <p class="mb-1 text-sm text-gray-600"><span class="font-semibold">点击上传</span> 或拖放文件</p>
+                                    <p class="text-xs text-gray-500">支持日志文件、截图、配置文件等 (最大10MB)</p>
+                                </div>
+                                <input id="file-upload" type="file" class="hidden" multiple />
+                            </label>
+                        </div>
+                        
+                        <div class="ml-4 w-64 bg-gray-50 rounded-lg p-4 max-h-48 overflow-y-auto">
+                            <h4 class="font-semibold text-gray-700 mb-2">已上传文件</h4>
+                            <div id="uploaded-files" class="space-y-2">
+                                <!-- 上传的文件将显示在这里 -->
+                            </div>
+                            <div id="no-files" class="text-center py-4 text-gray-500 text-sm">
+                                <i class="fa fa-file-o text-xl mb-1"></i>
+                                <p>暂无上传文件</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end gap-3">
+                    <button id="clear-issue" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                        <i class="fa fa-trash mr-1"></i>清空内容
+                    </button>
+                    <button id="submit-issue" class="btn-primary px-4 py-2">
+                        <i class="fa fa-paper-plane mr-1"></i>提交问题
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 智能对话界面 -->
+        <div class="card h-[800px] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold flex items-center">
+                    <i class="fa fa-comments-o text-primary mr-2"></i>智能对话
+                </h2>
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-gray-600">选择模型：</span>
+                    <div class="relative">
+                        <select id="model-selector" class="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm pr-8">
+                            <option value="dify">Dify 方式</option>
+                            <option value="openai">OpenAI 方式</option>
+                            <option value="glm">GLM 方式</option>
+                            <option value="add-model">+ 新增模型</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+                    
+                    <div class="flex-1 border border-gray-200 rounded-lg overflow-hidden flex flex-col">
+                        <!-- 对话区域 -->
+                        <div id="chat-messages" class="flex-1 overflow-y-auto p-4 bg-gray-50 space-y-6">
+                            <!-- 系统欢迎消息 -->
+                            <div class="chat-bubble-ai">
+                                <div class="flex items-center mb-2">
+                                    <i class="fa fa-robot text-primary mr-2"></i>
+                                    <span class="text-xs font-medium">vastbase 智能助手 - 量仔</span>
+                                    <span class="text-xs text-gray-500 ml-2"></span>
+                                </div>
+                                <p>我是 vastbase 智能助手 - 量仔。 我可以帮助用户： 1. 基于用户上传的文件、历史对话内容，进行问题诊断与分析。 2. 针对诊断结果，生成清晰、可落地的解决方案。</p>
+                            </div>
+                        </div>
+                        
+                        <!-- 输入框区域 -->
+                        <div class="border-t border-gray-200 p-4 bg-white">
+                            <div class="flex gap-2">
+                                <textarea id="chat-input" placeholder="输入您的问题，按Enter发送..." 
+                                          class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                                          rows="2"></textarea>
+                                <button id="send-btn" class="btn-primary px-4">
+                                    <i class="fa fa-paper-plane"></i>
+                                </button>
+                            </div>
+                            <div class="flex items-center justify-between mt-2 text-xs text-gray-500">
+                                <div class="flex gap-3">
+                                    <button id="attach-btn" class="hover:text-primary transition-colors">
+                                        <i class="fa fa-paperclip mr-1"></i>附件
+                                    </button>
+                                    <button class="hover:text-primary transition-colors">
+                                        <i class="fa fa-smile-o mr-1"></i>表情
+                                    </button>
+                                    <button class="hover:text-primary transition-colors">
+                                        <i class="fa fa-code mr-1"></i>代码
+                                    </button>
+                                </div>
+                                <span>按Shift+Enter换行，Enter发送</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 模型配置模态框 -->
+    <div id="model-config-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-primary">模型配置</h3>
+                <button id="close-config-modal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">API 基础地址</label>
+                    <input type="text" id="api-base-url" value="http://localhost:8004/api" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">API 密钥 <span class="text-red-500">*</span></label>
+                    <input type="password" id="api-key" value="app-qO8Kt1njhD0BQkHzyQIklW8Z" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    <p class="text-xs text-gray-500 mt-1">API密钥已默认设置，将用于Authorization头认证</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">模型选择</label>
+                    <select id="model-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                        <option value="gpt-4">GPT-4</option>
+                        <option value="dify-model">Dify 模型</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">温度参数</label>
+                    <input type="number" id="temperature" value="0.7" min="0" max="1" step="0.1" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button id="cancel-config" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                    取消
+                </button>
+                <button id="save-config" class="btn-primary px-4 py-2">
+                    保存配置
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增模型模态框 -->
+    <div id="add-model-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-primary">新增模型</h3>
+                <button id="close-add-model-modal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">模型名称</label>
+                    <input type="text" id="new-model-name" placeholder="请输入模型名称" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">模型类型</label>
+                    <select id="new-model-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <option value="openai">OpenAI</option>
+                        <option value="dify">Dify</option>
+                        <option value="glm">GLM</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">API 基础地址</label>
+                    <input type="text" id="new-model-api-url" placeholder="请输入API基础地址" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">API 密钥 <span class="text-red-500">*</span></label>
+                    <input type="password" id="new-model-api-key" placeholder="请输入API密钥" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button id="cancel-add-model" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                    取消
+                </button>
+                <button id="save-new-model" class="btn-primary px-4 py-2">
+                    保存模型
+                </button>
+            </div>
+        </div>
+    </div>
+    
+
+
+    <footer class="bg-white mt-16 py-8 border-t border-gray-200">
+        <div class="container mx-auto px-4 text-center text-gray-600">
+            <p>© 2026 智能数据库管理平台 - 一站式智能数据库全生命周期管理解决方案</p>
+            <div class="mt-4 flex justify-center gap-4 text-primary">
+                <i class="fa fa-question-circle cursor-pointer hover:text-secondary"></i>
+                <i class="fa fa-book cursor-pointer hover:text-secondary"></i>
+                <i class="fa fa-support cursor-pointer hover:text-secondary"></i>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 功能脚本 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 全局变量
+            let uploadedFiles = [];
+            
+            // DOM 元素
+            const fileUpload = document.getElementById('file-upload');
+            const uploadedFilesContainer = document.getElementById('uploaded-files');
+            const noFilesMessage = document.getElementById('no-files');
+            const chatInput = document.getElementById('chat-input');
+            const sendBtn = document.getElementById('send-btn');
+            const chatMessages = document.getElementById('chat-messages');
+            const issueTitle = document.getElementById('issue-title');
+            const issueType = document.getElementById('issue-type');
+            const issueDescription = document.getElementById('issue-description');
+            const clearIssueBtn = document.getElementById('clear-issue');
+            const submitIssueBtn = document.getElementById('submit-issue');
+            const modelSelector = document.getElementById('model-selector');
+            const addModelModal = document.getElementById('add-model-modal');
+            const closeAddModelModal = document.getElementById('close-add-model-modal');
+            const cancelAddModel = document.getElementById('cancel-add-model');
+            const saveNewModel = document.getElementById('save-new-model');
+            
+            // 设置当前时间到欢迎消息
+            const welcomeMessageTime = chatMessages.querySelector('.chat-bubble-ai .text-gray-500');
+            if (welcomeMessageTime) {
+                const now = new Date();
+                const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+                welcomeMessageTime.textContent = time;
+            }
+            
+            // 初始化界面
+            updateFileList();
+            
+            // 文件上传处理
+            fileUpload.addEventListener('change', function(e) {
+                if (this.files.length > 0) {
+                    handleFileUpload(this.files);
+                }
+            });
+            
+            // 拖放文件处理
+            const dropArea = document.querySelector('label[for="file-upload"]');
+            dropArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                this.classList.add('border-primary');
+            });
+            
+            dropArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                this.classList.remove('border-primary');
+            });
+            
+            dropArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                this.classList.remove('border-primary');
+                if (e.dataTransfer.files.length > 0) {
+                    handleFileUpload(e.dataTransfer.files);
+                }
+            });
+            
+            // 处理文件上传
+            async function handleFileUpload(files) {
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    
+                    // 检查文件大小
+                    if (file.size > 10 * 1024 * 1024) { // 10MB
+                        alert(`文件 ${file.name} 超过大小限制 (10MB)`);
+                        continue;
+                    }
+                    
+                    // 上传文件到Dify
+                    try {
+                        const fileId = await uploadFileToDify(file);
+                        
+                        // 创建文件对象
+                        const fileObj = {
+                            id: Date.now() + i,
+                            name: file.name,
+                            size: file.size,
+                            file: file,
+                            difyFileId: fileId
+                        };
+                        
+                        uploadedFiles.push(fileObj);
+                        
+                        // 调用Dify API分析文件并生成摘要
+                        await analyzeFileWithDify(fileObj);
+                    } catch (error) {
+                        console.error('文件处理失败:', error);
+                        addMessage('ai', `文件 ${file.name} 处理失败，请稍后重试。`);
+                    }
+                }
+                
+                updateFileList();
+            }
+            
+            // 使用Dify API分析文件
+            async function analyzeFileWithDify(fileObj) {
+                try {
+                    // 加载模型配置
+                    const savedConfig = localStorage.getItem('modelConfig');
+                    const config = savedConfig ? JSON.parse(savedConfig) : {
+                        apiBaseUrl: 'http://localhost:8004/api',
+                        apiKey: 'app-qO8Kt1njhD0BQkHzyQIklW8Z'
+                    };
+                    
+                    // 准备请求数据
+                    const requestData = {
+                        inputs: {},
+                        query: `请分析并总结文件 ${fileObj.name} 的内容`,
+                        response_mode: 'blocking',
+                        conversation_id: localStorage.getItem('conversationId') || '',
+                        user: 'user-' + Date.now(),
+                        files: [{
+                            type: 'document',
+                            transfer_method: 'local_file',
+                            upload_file_id: fileObj.difyFileId
+                        }]
+                    };
+                    
+                    // 发送请求到Dify API
+                    const response = await fetch(`${config.apiBaseUrl}/chat-messages`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${config.apiKey}`
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        // 保存对话ID
+                        if (data.conversation_id) {
+                            localStorage.setItem('conversationId', data.conversation_id);
+                        }
+                        // 显示AI回复（文件摘要）
+                        addMessage('ai', data.answer);
+                    } else {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(`文件分析失败: ${errorData.error || response.statusText}`);
+                    }
+                } catch (error) {
+                    console.error('文件分析失败:', error);
+                    addMessage('ai', `文件 ${fileObj.name} 分析失败，请稍后重试。`);
+                }
+            }
+            
+            // 更新文件列表
+            function updateFileList() {
+                if (uploadedFiles.length > 0) {
+                    noFilesMessage.style.display = 'none';
+                    uploadedFilesContainer.innerHTML = '';
+                    
+                    uploadedFiles.forEach(file => {
+                        const fileItem = document.createElement('div');
+                        fileItem.className = 'flex items-center text-sm p-2 bg-white rounded-md border border-gray-200';
+                        fileItem.innerHTML = `
+                            <i class="fa fa-file-text-o text-primary mr-3"></i>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-gray-700 truncate">${file.name}</p>
+                                <p class="text-xs text-gray-500">${formatFileSize(file.size)}</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="text-primary hover:text-primary/80" onclick="chatWithFile(${file.id})">
+                                    <i class="fa fa-comment"></i>
+                                </button>
+                                <button class="text-gray-400 hover:text-red-500" onclick="removeFile(${file.id})">
+                                    <i class="fa fa-times"></i>
+                                </button>
+                            </div>
+                        `;
+                        uploadedFilesContainer.appendChild(fileItem);
+                    });
+                } else {
+                    noFilesMessage.style.display = 'block';
+                    uploadedFilesContainer.innerHTML = '';
+                }
+            }
+            
+            // 格式化文件大小
+            function formatFileSize(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            }
+            
+            // 与文件对话
+            window.chatWithFile = async function(fileId) {
+                const file = uploadedFiles.find(f => f.id === fileId);
+                if (file) {
+                    addMessage('user', `我想了解文件 ${file.name} 的内容`);
+                    
+                    try {
+                        // 加载模型配置
+                        const savedConfig = localStorage.getItem('modelConfig');
+                        const config = savedConfig ? JSON.parse(savedConfig) : {
+                            apiBaseUrl: 'https://api.dify.ai/v1',
+                            apiKey: 'app-qO8Kt1njhD0BQkHzyQIklW8Z'
+                        };
+                        
+                        // 准备请求数据
+                        const requestData = {
+                            inputs: {},
+                            query: `请分析并详细解释文件 ${file.name} 的内容`,
+                            response_mode: 'blocking',
+                            conversation_id: localStorage.getItem('conversationId') || '',
+                            user: 'user-' + Date.now(),
+                            files: [{
+                            type: 'document',
+                            transfer_method: 'local_file',
+                            upload_file_id: file.difyFileId
+                        }]
+                        };
+                        
+                        // 发送请求到Dify API
+                        const response = await fetch(`${config.apiBaseUrl}/chat-messages`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${config.apiKey}`
+                            },
+                            body: JSON.stringify(requestData)
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            // 保存对话ID
+                            if (data.conversation_id) {
+                                localStorage.setItem('conversationId', data.conversation_id);
+                            }
+                            // 显示AI回复
+                            addMessage('ai', data.answer);
+                        } else {
+                            throw new Error('文件分析失败');
+                        }
+                    } catch (error) {
+                        console.error('文件对话失败:', error);
+                        addMessage('ai', `文件 ${file.name} 分析失败，请稍后重试。`);
+                    }
+                }
+            };
+            
+            // 移除文件
+            window.removeFile = function(fileId) {
+                uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
+                updateFileList();
+            };
+            
+            // 全局变量
+            let lastMessageTime = '';
+            
+            // 聊天功能
+            function addMessage(type, content) {
+                const now = new Date();
+                const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+                
+                // 只在时间不同时显示时间戳
+                if (time !== lastMessageTime) {
+                    // 创建时间戳元素
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'flex justify-center my-2';
+                    timeDiv.innerHTML = `<span class="text-xs text-gray-500 px-2 py-1 rounded-full bg-gray-200">${time}</span>`;
+                    chatMessages.appendChild(timeDiv);
+                    lastMessageTime = time;
+                }
+                
+                // 创建消息元素
+                const messageDiv = document.createElement('div');
+                messageDiv.className = type === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai';
+                
+                if (type === 'user') {
+                    messageDiv.innerHTML = `<p>${content}</p>`;
+                } else {
+                    messageDiv.innerHTML = `
+                        <div class="flex items-center mb-2">
+                            <i class="fa fa-robot text-primary mr-2"></i>
+                            <span class="text-xs font-medium">vastbase 智能助手 - 量仔</span>
+                        </div>
+                        <p>${content}</p>
+                    `;
+                }
+                
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            // 发送消息
+            function sendMessage() {
+                const message = chatInput.value.trim();
+                if (message) {
+                    addMessage('user', message);
+                    chatInput.value = '';
+                    
+                    // 调用Dify API获取回复
+                    callDifyAPI(message);
+                }
+            }
+            
+            // 调用Dify API
+            async function callDifyAPI(message) {
+                try {
+                    // 加载模型配置
+                    const savedConfig = localStorage.getItem('modelConfig');
+                    const config = savedConfig ? JSON.parse(savedConfig) : {
+                        apiBaseUrl: 'http://localhost:8004/api',
+                        apiKey: 'app-qO8Kt1njhD0BQkHzyQIklW8Z'
+                    };
+                    
+                    // 准备请求数据
+                    const requestData = {
+                        inputs: {},
+                        query: message,
+                        response_mode: 'blocking',
+                        conversation_id: localStorage.getItem('conversationId') || '',
+                        user: 'user-' + Date.now()
+                    };
+                    
+                    // 发送请求到Dify API
+                    const response = await fetch(`${config.apiBaseUrl}/chat-messages`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${config.apiKey}`
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        // 保存对话ID
+                        if (data.conversation_id) {
+                            localStorage.setItem('conversationId', data.conversation_id);
+                        }
+                        // 显示AI回复
+                        addMessage('ai', data.answer);
+                    } else {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(`API请求失败: ${errorData.error || response.statusText}`);
+                    }
+                } catch (error) {
+                    console.error('调用Dify API失败:', error);
+                    addMessage('ai', '抱歉，调用服务时出现错误，请稍后重试。');
+                }
+            }
+            
+            // 上传文件到Dify
+            async function uploadFileToDify(file) {
+                try {
+                    // 加载模型配置
+                    const savedConfig = localStorage.getItem('modelConfig');
+                    const config = savedConfig ? JSON.parse(savedConfig) : {
+                        apiBaseUrl: 'http://localhost:8004/api',
+                        apiKey: 'app-qO8Kt1njhD0BQkHzyQIklW8Z'
+                    };
+                    
+                    // 创建FormData
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('user', 'user-' + Date.now());
+                    
+                    // 发送文件上传请求
+                    const response = await fetch(`${config.apiBaseUrl}/files/upload`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${config.apiKey}`
+                        },
+                        body: formData
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        return data.id;
+                    } else {
+                        throw new Error('文件上传失败');
+                    }
+                } catch (error) {
+                    console.error('文件上传失败:', error);
+                    throw error;
+                }
+            }
+            
+            // 聊天输入框回车发送
+            chatInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            // 发送按钮点击事件
+            sendBtn.addEventListener('click', sendMessage);
+            
+            // 清空问题表单
+            clearIssueBtn.addEventListener('click', function() {
+                issueTitle.value = '';
+                issueType.value = 'installation';
+                issueDescription.value = '';
+                uploadedFiles = [];
+                updateFileList();
+                alert('表单已清空');
+            });
+            
+            // 提交问题
+            submitIssueBtn.addEventListener('click', function() {
+                const title = issueTitle.value.trim();
+                const type = issueType.value;
+                const description = issueDescription.value.trim();
+                
+                if (!title || !description) {
+                    alert('请填写问题标题和详细描述');
+                    return;
+                }
+                
+                // 构建问题信息
+                const issueInfo = {
+                    title: title,
+                    type: type,
+                    description: description,
+                    files: uploadedFiles.map(file => file.name)
+                };
+                
+                // 将问题信息发送到聊天界面
+                addMessage('user', `问题提交：\n标题：${title}\n类型：${type === 'installation' ? '安装升级问题' : '运维问题'}\n描述：${description}\n已上传文件：${uploadedFiles.length > 0 ? uploadedFiles.map(file => file.name).join(', ') : '无'}`);
+                
+                // 调用API获取回复
+                callDifyAPI(`请分析以下问题：\n标题：${title}\n类型：${type === 'installation' ? '安装升级问题' : '运维问题'}\n描述：${description}`);
+                
+                // 清空表单
+                issueTitle.value = '';
+                issueType.value = 'installation';
+                issueDescription.value = '';
+                uploadedFiles = [];
+                updateFileList();
+            });
+            
+            // 模型选择下拉框事件
+            modelSelector.addEventListener('change', function() {
+                if (this.value === 'add-model') {
+                    // 打开新增模型模态框
+                    addModelModal.classList.remove('hidden');
+                    // 重置选择框到默认选项
+                    this.value = 'dify';
+                }
+            });
+            
+            // 关闭新增模型模态框
+            function closeAddModelModalFunc() {
+                addModelModal.classList.add('hidden');
+                // 清空表单
+                document.getElementById('new-model-name').value = '';
+                document.getElementById('new-model-type').value = 'openai';
+                document.getElementById('new-model-api-url').value = '';
+                document.getElementById('new-model-api-key').value = '';
+            }
+            
+            closeAddModelModal.addEventListener('click', closeAddModelModalFunc);
+            cancelAddModel.addEventListener('click', closeAddModelModalFunc);
+            
+            // 点击模态框外部关闭
+            addModelModal.addEventListener('click', function(e) {
+                if (e.target === addModelModal) {
+                    closeAddModelModalFunc();
+                }
+            });
+            
+            // 保存新模型
+            saveNewModel.addEventListener('click', function() {
+                const modelName = document.getElementById('new-model-name').value.trim();
+                const modelType = document.getElementById('new-model-type').value;
+                const apiUrl = document.getElementById('new-model-api-url').value.trim();
+                const apiKey = document.getElementById('new-model-api-key').value.trim();
+                
+                if (!modelName || !apiKey) {
+                    alert('请填写模型名称和API密钥');
+                    return;
+                }
+                
+                // 创建新模型选项
+                const newOption = document.createElement('option');
+                newOption.value = modelName.toLowerCase().replace(/\s+/g, '-');
+                newOption.textContent = `${modelName} (${modelType})`;
+                
+                // 插入到"新增模型"选项之前
+                const addModelOption = modelSelector.querySelector('option[value="add-model"]');
+                modelSelector.insertBefore(newOption, addModelOption);
+                
+                // 保存模型配置到本地存储
+                let models = JSON.parse(localStorage.getItem('customModels') || '[]');
+                models.push({
+                    name: modelName,
+                    type: modelType,
+                    apiUrl: apiUrl,
+                    apiKey: apiKey
+                });
+                localStorage.setItem('customModels', JSON.stringify(models));
+                
+                alert('模型添加成功！');
+                closeAddModelModalFunc();
+            });
+            
+            // 加载自定义模型
+            function loadCustomModels() {
+                const models = JSON.parse(localStorage.getItem('customModels') || '[]');
+                const addModelOption = modelSelector.querySelector('option[value="add-model"]');
+                
+                models.forEach(model => {
+                    const newOption = document.createElement('option');
+                    newOption.value = model.name.toLowerCase().replace(/\s+/g, '-');
+                    newOption.textContent = `${model.name} (${model.type})`;
+                    modelSelector.insertBefore(newOption, addModelOption);
+                });
+            }
+            
+            // 初始化加载自定义模型
+            loadCustomModels();
+        });
+    </script>
+</body>
+</html>
