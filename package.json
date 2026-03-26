@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Vastbase 智能助手支持页面",
   "scripts": {
-    "dev": "http-server -p 8081 -c-1"
+    "dev": "node server.js",
+    "dev:static": "http-server -p 8081 -c-1"
   },
   "keywords": [
     "vastbase",

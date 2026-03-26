@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能对话 - 智能数据库管理平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/javascript.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/python.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/sql.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/bash.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/json.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/xml.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/languages/css.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#60A5FA',
+                        neutral: '#F5F7FA',
+                        dark: '#1D2129',
+                        light: '#C9CDD4',
+                        success: '#00B42A',
+                        warning: '#FF7D00',
+                        danger: '#F53F3F'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-primary {
+                @apply bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors;
+            }
+            .chat-bubble-user {
+                @apply bg-gradient-to-br from-blue-400 to-blue-500 text-white rounded-2xl p-4 max-w-[80%] ml-auto shadow-sm;
+            }
+            .chat-bubble-ai {
+                @apply bg-slate-100 text-gray-800 rounded-2xl p-4 max-w-[80%] border border-slate-200 shadow-sm;
+            }
+        }
+    </style>
+    <style>
+        .markdown-content {
+            line-height: 1.6;
+            font-size: 14px;
+        }
+        .markdown-content h1,
+        .markdown-content h2,
+        .markdown-content h3,
+        .markdown-content h4,
+        .markdown-content h5,
+        .markdown-content h6 {
+            font-weight: 600;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+            color: #1D2129;
+        }
+        .markdown-content h1 { font-size: 1.5em; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
+        .markdown-content h2 { font-size: 1.3em; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.3em; }
+        .markdown-content h3 { font-size: 1.15em; }
+        .markdown-content h4 { font-size: 1em; }
+        .markdown-content p { margin: 0.5em 0; }
+        .markdown-content ul,
+        .markdown-content ol {
+            padding-left: 1.5em;
+            margin: 0.5em 0;
+        }
+        .markdown-content li { margin: 0.25em 0; }
+        .markdown-content code {
+            background-color: #f3f4f6;
+            padding: 0.15em 0.4em;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+            color: #e83e8c;
+        }
+        .markdown-content pre {
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            padding: 1em;
+            overflow-x: auto;
+            margin: 0.75em 0;
+            position: relative;
+        }
+        .markdown-content pre code {
+            background-color: transparent;
+            padding: 0;
+            color: #d4d4d4;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .markdown-content blockquote {
+            border-left: 4px solid #165DFF;
+            padding-left: 1em;
+            margin: 0.75em 0;
+            color: #6b7280;
+            background-color: #f9fafb;
+            border-radius: 0 4px 4px 0;
+            padding: 0.5em 1em;
+        }
+        .markdown-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 0.75em 0;
+            font-size: 13px;
+        }
+        .markdown-content th,
+        .markdown-content td {
+            border: 1px solid #e5e7eb;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .markdown-content th {
+            background-color: #f9fafb;
+            font-weight: 600;
+        }
+        .markdown-content tr:nth-child(even) {
+            background-color: #f9fafb;
+        }
+        .markdown-content a {
+            color: #165DFF;
+            text-decoration: none;
+        }
+        .markdown-content a:hover {
+            text-decoration: underline;
+        }
+        .markdown-content hr {
+            border: none;
+            border-top: 1px solid #e5e7eb;
+            margin: 1em 0;
+        }
+        .markdown-content img {
+            max-width: 100%;
+            border-radius: 4px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+        
+        .file-list-item {
+            transition: all 0.2s;
+        }
+        .file-list-item:hover {
+            background-color: #f0f5ff;
+            border-color: #165DFF;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar-mobile-hidden {
+                transform: translateX(-100%);
+            }
+            .sidebar-mobile-visible {
+                transform: translateX(0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-neutral min-h-screen">
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <button id="toggle-sidebar" class="md:hidden text-gray-600 hover:text-primary">
+                    <i class="fa fa-bars text-xl"></i>
+                </button>
+                <a href="support-submit.html" class="text-primary text-xl"><i class="fa fa-arrow-left"></i></a>
+                <h1 class="text-xl font-bold text-primary">智能对话</h1>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="relative">
+                    <button id="model-select-btn" class="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary/50 bg-white">
+                        <i class="fa fa-cube text-primary"></i>
+                        <span id="current-model-display">GLM-5</span>
+                        <i class="fa fa-chevron-down text-xs text-gray-400"></i>
+                    </button>
+                    <div id="model-selector-panel" class="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50 w-72">
+                        <div class="p-2">
+                            <div class="text-xs text-gray-500 px-3 py-2 border-b border-gray-100">选择模型</div>
+                            <div id="model-list" class="max-h-48 overflow-y-auto">
+                                <div id="no-models-tip" class="text-center py-4 text-gray-400 text-sm">
+                                    <i class="fa fa-inbox text-2xl mb-2"></i>
+                                    <p>暂无模型，请添加</p>
+                                </div>
+                            </div>
+                            <div class="border-t border-gray-100 mt-1 pt-1">
+                                <a href="support-submit.html" class="w-full px-3 py-2 text-left text-sm text-primary hover:bg-primary/5 rounded-lg flex items-center gap-2">
+                                    <i class="fa fa-plus"></i>
+                                    <span>新增模型</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button id="reset-conversation-btn" class="flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-red-50 hover:border-red-300 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500/50 transition-colors">
+                    <i class="fa fa-refresh"></i>
+                    <span class="hidden sm:inline">新对话</span>
+                </button>
+                <button id="export-report-btn" class="flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors">
+                    <i class="fa fa-file-text-o"></i>
+                    <span class="hidden sm:inline">报告导出</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex h-[calc(100vh-64px)]">
+        <div id="sidebar" class="w-72 bg-white border-r border-gray-200 flex flex-col fixed md:relative z-40 h-full transition-transform duration-300 sidebar-mobile-hidden md:transform-none">
+            <div class="p-4 border-b border-gray-200">
+                <h3 class="font-semibold text-gray-700 flex items-center">
+                    <i class="fa fa-paperclip text-primary mr-2"></i>
+                    已上传文件
+                    <span id="sidebar-file-count" class="ml-2 text-xs text-gray-500 font-normal">(0个)</span>
+                </h3>
+            </div>
+            <div id="sidebar-files" class="flex-1 overflow-y-auto custom-scrollbar p-3">
+                <div id="sidebar-no-files" class="text-center py-8 text-gray-500">
+                    <i class="fa fa-file-o text-3xl mb-2 text-gray-300"></i>
+                    <p class="text-sm">暂无上传文件</p>
+                    <p class="text-xs text-gray-400 mt-1">从问题提交页面上传</p>
+                </div>
+                <div id="sidebar-file-list" class="space-y-2 hidden"></div>
+            </div>
+            <div class="p-4 border-t border-gray-200">
+                <div id="issue-info" class="text-sm text-gray-600">
+                    <p class="font-medium text-gray-700 mb-1">当前问题</p>
+                    <p id="issue-title-display" class="text-gray-500 truncate">-</p>
+                </div>
+            </div>
+        </div>
+        
+        <div id="sidebar-overlay" class="fixed inset-0 bg-black/30 z-30 hidden md:hidden"></div>
+
+        <main class="flex-1 flex flex-col bg-white">
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar">
+                <div class="chat-bubble-ai">
+                    <div class="flex items-center mb-2">
+                        <i class="fa fa-robot text-primary mr-2"></i>
+                        <span class="text-xs font-medium">vastbase 智能助手 - 量仔</span>
+                    </div>
+                    <p>我是 vastbase 智能助手 - 量仔。我可以帮助用户：</p>
+                    <p class="mt-2">1. 基于用户上传的文件、历史对话内容，进行问题诊断与分析。</p>
+                    <p>2. 针对诊断结果，生成清晰、可落地的解决方案。</p>
+                </div>
+            </div>
+            
+            <div class="border-t border-gray-200 p-4 bg-white">
+                <div class="flex gap-3">
+                    <button id="attach-btn" class="flex-shrink-0 flex items-center justify-center w-10 h-10 border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50 hover:text-primary transition-colors">
+                        <i class="fa fa-paperclip"></i>
+                    </button>
+                    <textarea id="chat-input" placeholder="输入您的问题，按Enter发送..." 
+                              class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                              rows="2"></textarea>
+                    <button id="send-btn" class="flex-shrink-0 btn-primary px-4 flex items-center justify-center">
+                        <i class="fa fa-paper-plane"></i>
+                    </button>
+                </div>
+                <div class="flex items-center justify-between mt-2 text-xs text-gray-500">
+                    <div class="flex gap-3">
+                        <span>当前模型: <span id="current-model-display" class="text-primary font-medium">GLM-5</span></span>
+                    </div>
+                    <div>
+                        <span>Shift + Enter 换行</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <input type="file" id="file-input" class="hidden" multiple />
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            sessionStorage.removeItem('dify_conversationId');
+            sessionStorage.removeItem('dify_conversationId_timestamp');
+            sessionStorage.removeItem('bigmodel_conversation_history');
+            sessionStorage.removeItem('messageHistory');
+            
+            const AppState = {
+                conversationId: null,
+                userId: null,
+                bigmodelConversationHistory: [],
+                STORAGE_KEY: 'dify_conversationId',
+                USER_ID_KEY: 'dify_userId',
+                TIMESTAMP_KEY: 'dify_conversationId_timestamp',
+                SESSION_TIMEOUT: 30 * 60 * 1000,
+                
+                init() {
+                    this.conversationId = this.getValidConversationId();
+                    this.userId = this.getOrCreateUserId();
+                    this.bigmodelConversationHistory = JSON.parse(sessionStorage.getItem('bigmodel_conversation_history') || '[]');
+                },
+                
+                getOrCreateUserId() {
+                    let id = localStorage.getItem(this.USER_ID_KEY);
+                    if (!id) {
+                        id = 'user-' + Math.random().toString(36).substring(2, 15) + Date.now();
+                        localStorage.setItem(this.USER_ID_KEY, id);
+                    }
+                    return id;
+                },
+                
+                getUserId() {
+                    return this.userId;
+                },
+                
+                getValidConversationId() {
+                    let storedId = sessionStorage.getItem(this.STORAGE_KEY);
+                    let storedTimestamp = sessionStorage.getItem(this.TIMESTAMP_KEY);
+                    
+                    if (storedId && storedTimestamp) {
+                        const elapsed = Date.now() - parseInt(storedTimestamp, 10);
+                        if (elapsed > this.SESSION_TIMEOUT) {
+                            this.clearConversationId();
+                            return null;
+                        }
+                        return storedId;
+                    }
+                    return null;
+                },
+                
+                isSessionExpired() {
+                    let storedTimestamp = sessionStorage.getItem(this.TIMESTAMP_KEY);
+                    if (!storedTimestamp) return true;
+                    return (Date.now() - parseInt(storedTimestamp, 10)) > this.SESSION_TIMEOUT;
+                },
+                
+                resetConversation() {
+                    this.conversationId = null;
+                    sessionStorage.removeItem(this.STORAGE_KEY);
+                    sessionStorage.removeItem(this.TIMESTAMP_KEY);
+                    this.bigmodelConversationHistory = [];
+                    sessionStorage.removeItem('bigmodel_conversation_history');
+                    return this.conversationId;
+                },
+                
+                getConversationId() {
+                    if (this.conversationId && this.isSessionExpired()) {
+                        this.clearConversationId();
+                        return null;
+                    }
+                    return this.conversationId;
+                },
+                
+                updateConversationId(newId) {
+                    this.conversationId = newId;
+                    sessionStorage.setItem(this.STORAGE_KEY, newId);
+                    sessionStorage.setItem(this.TIMESTAMP_KEY, Date.now().toString());
+                },
+                
+                clearConversationId() {
+                    this.conversationId = null;
+                    sessionStorage.removeItem(this.STORAGE_KEY);
+                    sessionStorage.removeItem(this.TIMESTAMP_KEY);
+                },
+                
+                refreshTimestamp() {
+                    if (this.conversationId) {
+                        sessionStorage.setItem(this.TIMESTAMP_KEY, Date.now().toString());
+                    }
+                },
+                
+                saveBigModelHistory(history) {
+                    this.bigmodelConversationHistory = history;
+                    sessionStorage.setItem('bigmodel_conversation_history', JSON.stringify(history));
+                },
+                
+                getBigModelHistory() {
+                    return this.bigmodelConversationHistory;
+                }
+            };
+            
+            AppState.init();
+            
+            let uploadedFiles = JSON.parse(sessionStorage.getItem('uploadedFiles') || '[]').map(f => ({
+                ...f,
+                selected: false,
+                isNew: false
+            }));
+            let currentModel = 'GLM-5';
+            let lastMessageTime = '';
+            let messageHistory = JSON.parse(sessionStorage.getItem('messageHistory') || '[]');
+            
+            function saveUploadedFiles() {
+                const filesToSave = uploadedFiles.map(f => ({
+                    id: f.id,
+                    name: f.name,
+                    size: f.size,
+                    type: f.type,
+                    content: f.content
+                }));
+                sessionStorage.setItem('uploadedFiles', JSON.stringify(filesToSave));
+            }
+            
+            const chatMessages = document.getElementById('chat-messages');
+            const chatInput = document.getElementById('chat-input');
+            const sendBtn = document.getElementById('send-btn');
+            const attachBtn = document.getElementById('attach-btn');
+            const fileInput = document.getElementById('file-input');
+            const resetConversationBtn = document.getElementById('reset-conversation-btn');
+            const exportReportBtn = document.getElementById('export-report-btn');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebar-overlay');
+            const toggleSidebar = document.getElementById('toggle-sidebar');
+            const sidebarFileList = document.getElementById('sidebar-file-list');
+            const sidebarNoFiles = document.getElementById('sidebar-no-files');
+            const sidebarFileCount = document.getElementById('sidebar-file-count');
+            const issueTitleDisplay = document.getElementById('issue-title-display');
+            const currentModelDisplay = document.getElementById('current-model-display');
+            const modelSelectBtn = document.getElementById('model-select-btn');
+            const modelSelectorPanel = document.getElementById('model-selector-panel');
+            const modelList = document.getElementById('model-list');
+            const noModelsTip = document.getElementById('no-models-tip');
+            
+            function getModels() {
+                return JSON.parse(localStorage.getItem('models') || '[]');
+            }
+            
+            function loadModelList() {
+                const models = getModels();
+                modelList.innerHTML = '';
+                
+                if (models.length > 0) {
+                    noModelsTip.classList.add('hidden');
+                    models.forEach(model => {
+                        const modelItem = document.createElement('div');
+                        modelItem.className = 'px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center justify-between rounded-lg';
+                        const isSelected = model.name === currentModel;
+                        if (isSelected) {
+                            modelItem.className += ' bg-primary/5';
+                        }
+                        modelItem.innerHTML = `
+                            <div class="flex items-center gap-2">
+                                <i class="fa fa-cube ${isSelected ? 'text-primary' : 'text-gray-400'}"></i>
+                                <div>
+                                    <p class="font-medium text-sm ${isSelected ? 'text-primary' : ''}">${model.name}</p>
+                                    <p class="text-xs text-gray-500">${model.type === 'dify-api' ? 'Dify API' : 'BigModel'}</p>
+                                </div>
+                            </div>
+                            ${isSelected ? '<i class="fa fa-check text-primary"></i>' : ''}
+                        `;
+                        modelItem.addEventListener('click', () => selectModel(model));
+                        modelList.appendChild(modelItem);
+                    });
+                } else {
+                    noModelsTip.classList.remove('hidden');
+                }
+            }
+            
+            function selectModel(model) {
+                currentModel = model.name;
+                currentModelDisplay.textContent = model.name;
+                localStorage.setItem('selectedModel', model.name);
+                modelSelectorPanel.classList.add('hidden');
+                loadModelList();
+                showToast('success', `已选择模型: ${model.name}`);
+            }
+            
+            modelSelectBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                modelSelectorPanel.classList.toggle('hidden');
+                loadModelList();
+            });
+            
+            document.addEventListener('click', function(e) {
+                if (!modelSelectorPanel.contains(e.target) && !modelSelectBtn.contains(e.target)) {
+                    modelSelectorPanel.classList.add('hidden');
+                }
+            });
+            
+            const savedModel = localStorage.getItem('selectedModel');
+            if (savedModel) {
+                const models = getModels();
+                const modelExists = models.find(m => m.name === savedModel);
+                if (modelExists) {
+                    currentModel = savedModel;
+                    currentModelDisplay.textContent = savedModel;
+                }
+            }
+            
+            function getSafeApiBaseUrl(originalUrl) {
+                let apiBaseUrl = originalUrl || '/api/dify/v1';
+                if (apiBaseUrl.includes('api.dify.ai') || apiBaseUrl.includes('dify.ai')) {
+                    apiBaseUrl = '/api/dify/v1';
+                }
+                if (!apiBaseUrl.endsWith('/v1') && !apiBaseUrl.includes('/v1/')) {
+                    apiBaseUrl = apiBaseUrl.replace(/\/$/, '') + '/v1';
+                }
+                return apiBaseUrl;
+            }
+            
+            function getFriendlyErrorMessage(errorMsg) {
+                if (!errorMsg) return '抱歉，系统出现了未知错误，请稍后再试。';
+                
+                const msgStr = typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg);
+                
+                if (msgStr.includes('429') || msgStr.includes('1302') || msgStr.includes('速率限制') || msgStr.includes('rate limit')) {
+                    return '【请求过于频繁】您的 AI 接口调用已达到速率限制。请稍等 1-2 分钟后再尝试。';
+                }
+                
+                if (msgStr.includes('AbortError') || msgStr.includes('超时') || msgStr.includes('timeout')) {
+                    return '【请求超时】AI 思考时间过长，请尝试简化您的问题或稍后重试。';
+                }
+                
+                if (msgStr.includes('Failed to fetch') || msgStr.includes('NetworkError') || msgStr.includes('无法连接')) {
+                    return '【网络连接失败】无法连接到 AI 服务。请检查您的网络状态。';
+                }
+
+                if (msgStr.includes('401') || msgStr.includes('Unauthorized') || msgStr.includes('API密钥未配置')) {
+                    return '【认证失败】API 密钥无效或未配置。';
+                }
+
+                return `抱歉，调用服务时出现错误：${msgStr}`;
+            }
+            
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+            
+            function getFileIcon(fileName) {
+                const ext = fileName.split('.').pop().toLowerCase();
+                const iconMap = {
+                    'txt': 'fa-file-text-o',
+                    'pdf': 'fa-file-pdf-o',
+                    'doc': 'fa-file-word-o', 'docx': 'fa-file-word-o',
+                    'xls': 'fa-file-excel-o', 'xlsx': 'fa-file-excel-o',
+                    'jpg': 'fa-file-image-o', 'jpeg': 'fa-file-image-o', 'png': 'fa-file-image-o', 'gif': 'fa-file-image-o',
+                    'zip': 'fa-file-archive-o', 'rar': 'fa-file-archive-o',
+                    'log': 'fa-file-text-o', 'json': 'fa-file-code-o', 'xml': 'fa-file-code-o'
+                };
+                return iconMap[ext] || 'fa-file-o';
+            }
+            
+            function isImageFile(file) {
+                return file && file.type && file.type.startsWith('image/');
+            }
+            
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+            
+            function renderMarkdown(content) {
+                if (typeof marked !== 'undefined') {
+                    try {
+                        return marked.parse(content);
+                    } catch (e) {
+                        console.error('Markdown解析失败:', e);
+                        return escapeHtml(content);
+                    }
+                }
+                return escapeHtml(content);
+            }
+            
+            function showToast(type, message) {
+                const existingToast = document.getElementById('custom-toast');
+                if (existingToast) existingToast.remove();
+                
+                const toast = document.createElement('div');
+                toast.id = 'custom-toast';
+                toast.className = `fixed top-4 right-4 px-4 py-3 rounded-lg shadow-lg z-50 flex items-center gap-3 transition-opacity duration-500 ${
+                    type === 'success' ? 'bg-green-500 text-white' : 
+                    type === 'error' ? 'bg-red-500 text-white' : 
+                    'bg-blue-500 text-white'
+                }`;
+                toast.innerHTML = `
+                    <i class="fa ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
+                    <span>${message}</span>
+                `;
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    setTimeout(() => toast.remove(), 500);
+                }, 3000);
+            }
+            
+            function updateSidebarFiles() {
+                const selectedCount = uploadedFiles.filter(f => f.selected).length;
+                saveUploadedFiles();
+                if (uploadedFiles.length === 0) {
+                    sidebarNoFiles.classList.remove('hidden');
+                    sidebarFileList.classList.add('hidden');
+                    sidebarFileCount.textContent = '(0个)';
+                } else {
+                    sidebarNoFiles.classList.add('hidden');
+                    sidebarFileList.classList.remove('hidden');
+                    sidebarFileCount.textContent = `(${uploadedFiles.length}个，已选${selectedCount}个)`;
+                    
+                    sidebarFileList.innerHTML = uploadedFiles.map(file => {
+                        const icon = getFileIcon(file.name);
+                        const isImage = isImageFile(file);
+                        const checkedAttr = file.selected ? 'checked' : '';
+                        const bgClass = file.selected ? 'bg-blue-50 border-blue-300' : 'bg-gray-50 border-gray-200';
+                        return `
+                            <div class="file-list-item p-3 ${bgClass} rounded-lg border cursor-pointer transition-all" data-file-id="${file.id}">
+                                <div class="flex items-start gap-3">
+                                    <input type="checkbox" 
+                                           class="file-checkbox mt-1 w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary cursor-pointer"
+                                           data-file-id="${file.id}"
+                                           ${checkedAttr}
+                                           onclick="event.stopPropagation(); toggleFileSelection('${file.id}')">
+                                    <div class="flex-shrink-0 w-8 h-8 rounded-lg ${isImage ? 'bg-orange-100' : 'bg-blue-100'} flex items-center justify-center">
+                                        <i class="fa ${icon} ${isImage ? 'text-orange-500' : 'text-primary'}"></i>
+                                    </div>
+                                    <div class="flex-1 min-w-0" onclick="downloadFile('${file.id}', '${escapeHtml(file.name)}')">
+                                        <p class="text-sm font-medium text-gray-700 truncate" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</p>
+                                        <p class="text-xs text-gray-500">${formatFileSize(file.size)}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+            
+            window.toggleFileSelection = function(fileId) {
+                const file = uploadedFiles.find(f => f.id === fileId);
+                if (file) {
+                    file.selected = !file.selected;
+                    updateSidebarFiles();
+                }
+            };
+            
+            window.downloadFile = function(fileId, fileName) {
+                const file = uploadedFiles.find(f => f.id === fileId);
+                if (file && file.content) {
+                    const a = document.createElement('a');
+                    a.href = file.content;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                } else {
+                    showToast('error', '文件已被清理，请重新上传');
+                }
+            };
+            
+            window.removeChatFile = function(fileId) {
+                uploadedFiles = uploadedFiles.filter(f => f.id !== fileId);
+                updateSidebarFiles();
+            };
+            
+            function addMessage(type, content, files = []) {
+                const now = new Date();
+                const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+                
+                messageHistory.push({
+                    role: type === 'user' ? 'user' : 'assistant',
+                    content: content,
+                    timestamp: now.toISOString()
+                });
+                sessionStorage.setItem('messageHistory', JSON.stringify(messageHistory));
+                
+                if (time !== lastMessageTime) {
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'flex justify-center my-2';
+                    timeDiv.innerHTML = `<span class="text-xs text-gray-500 px-2 py-1 rounded-full bg-gray-200">${time}</span>`;
+                    chatMessages.appendChild(timeDiv);
+                    lastMessageTime = time;
+                }
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = type === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai';
+                
+                if (type === 'user') {
+                    let html = `<p>${escapeHtml(content)}</p>`;
+                    if (files && files.length > 0) {
+                        html += `<div class="message-files mt-2 pt-2 border-t border-white/20">
+                            <div class="text-xs opacity-75 mb-1"><i class="fa fa-paperclip"></i> 附件 (${files.length})</div>
+                            ${files.map(f => `<span class="inline-block text-xs bg-white/20 px-2 py-1 rounded mr-1 mb-1">${escapeHtml(f.name)}</span>`).join('')}
+                        </div>`;
+                    }
+                    messageDiv.innerHTML = html;
+                } else {
+                    const renderedContent = renderMarkdown(content);
+                    let html = `
+                        <div class="flex items-center mb-2">
+                            <i class="fa fa-robot text-primary mr-2"></i>
+                            <span class="text-xs font-medium">vastbase 智能助手 - 量仔</span>
+                        </div>
+                        <div class="markdown-content">${renderedContent}</div>
+                    `;
+                    messageDiv.innerHTML = html;
+                    messageDiv.querySelectorAll('pre code').forEach((block) => {
+                        if (typeof hljs !== 'undefined') {
+                            hljs.highlightElement(block);
+                        }
+                    });
+                }
+                
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            function showThinkingBubble() {
+                if (document.getElementById('thinking-bubble')) return;
+                
+                const thinkingDiv = document.createElement('div');
+                thinkingDiv.id = 'thinking-bubble';
+                thinkingDiv.className = 'chat-bubble-ai';
+                thinkingDiv.innerHTML = `
+                    <div class="flex items-center mb-2">
+                        <i class="fa fa-robot text-primary mr-2"></i>
+                        <span class="text-xs font-medium">vastbase 智能助手 - 量仔</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-gray-500 italic text-sm">
+                        <i class="fa fa-spinner fa-spin text-primary"></i>
+                        <span>量仔正在思考中...</span>
+                    </div>
+                `;
+                chatMessages.appendChild(thinkingDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            function removeThinkingBubble() {
+                const thinkingDiv = document.getElementById('thinking-bubble');
+                if (thinkingDiv) {
+                    thinkingDiv.remove();
+                }
+            }
+            
+            async function sendMessage() {
+                const message = chatInput.value.trim();
+                
+                if (!message) return;
+                
+                const models = getModels();
+                const selectedModelObj = models.find(m => m.name === currentModel);
+                
+                if (!selectedModelObj || !selectedModelObj.apiKey) {
+                    showToast('error', '请先在问题提交页面配置模型');
+                    return;
+                }
+                
+                const selectedFiles = uploadedFiles.filter(f => f.selected);
+                
+                addMessage('user', message, selectedFiles);
+                chatInput.value = '';
+                
+                showThinkingBubble();
+                
+                try {
+                    const apiKey = selectedModelObj.apiKey;
+                    const isGLM = selectedModelObj.type === 'bigmodel';
+                    
+                    if (isGLM) {
+                        await callBigModelAPI(message, selectedModelObj, apiKey, selectedFiles);
+                    } else {
+                        await callDifyAPI(message, selectedModelObj, apiKey, selectedFiles);
+                    }
+                } catch (error) {
+                    console.error('发送消息失败:', error);
+                    removeThinkingBubble();
+                    addMessage('ai', getFriendlyErrorMessage(error.message));
+                }
+            }
+            
+            async function callBigModelAPI(message, modelConfig, apiKey, files = []) {
+                const modelMap = {
+                    'glm-5': 'glm-5',
+                    'glm-4.7': 'glm-4.7v',
+                    'glm-4v': 'glm-4v'
+                };
+                
+                const modelName = modelMap[modelConfig.bigmodel] || 'glm-5';
+                const apiUrl = modelConfig.apiBaseUrl || 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions';
+                
+                const conversationHistory = AppState.getBigModelHistory();
+                
+                let fileContent = '';
+                if (files.length > 0) {
+                    fileContent = '\n\n--- 附件内容 ---\n';
+                    for (const file of files) {
+                        if (file.content) {
+                            const content = file.content.split(',')[1] || '';
+                            const decodedContent = atob(content);
+                            if (decodedContent.length > 8000) {
+                                fileContent += `\n[${file.name}]: ${decodedContent.substring(0, 8000)}\n...[内容过长已截断]`;
+                            } else {
+                                fileContent += `\n[${file.name}]: ${decodedContent}`;
+                            }
+                        }
+                    }
+                }
+                
+                const userMessage = message + fileContent;
+                
+                conversationHistory.push({
+                    role: 'user',
+                    content: userMessage
+                });
+                
+                const requestData = {
+                    model: modelName,
+                    messages: conversationHistory
+                };
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 300000);
+                
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify(requestData),
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    removeThinkingBubble();
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        const assistantMessage = data.choices && data.choices[0] && data.choices[0].message 
+                            ? data.choices[0].message.content 
+                            : '抱歉，未获取到有效回复。';
+                        
+                        conversationHistory.push({
+                            role: 'assistant',
+                            content: assistantMessage
+                        });
+                        
+                        if (conversationHistory.length > 20) {
+                            conversationHistory.splice(0, conversationHistory.length - 20);
+                        }
+                        AppState.saveBigModelHistory(conversationHistory);
+                        
+                        addMessage('ai', assistantMessage);
+                    } else {
+                        const errorData = await response.json().catch(() => ({}));
+                        const errorMsg = errorData.error && errorData.error.message 
+                            ? errorData.error.message 
+                            : response.statusText;
+                        throw new Error(`BigModel API请求失败: ${errorMsg}`);
+                    }
+                } catch (error) {
+                    clearTimeout(timeoutId);
+                    throw error;
+                }
+            }
+            
+            async function callDifyAPI(message, modelConfig, apiKey, files = []) {
+                const apiBaseUrl = getSafeApiBaseUrl(modelConfig.apiBaseUrl);
+                const conversationId = AppState.getConversationId();
+                
+                let fileContent = '';
+                if (files && files.length > 0) {
+                    fileContent = '\n\n--- 附件内容 ---';
+                    for (const file of files) {
+                        if (file.content) {
+                            const content = file.content.split(',')[1] || '';
+                            try {
+                                const decodedContent = atob(content);
+                                if (decodedContent.length > 8000) {
+                                    fileContent += `\n[${file.name}]: ${decodedContent.substring(0, 8000)}\n...[内容过长已截断]`;
+                                } else {
+                                    fileContent += `\n[${file.name}]: ${decodedContent}`;
+                                }
+                            } catch (e) {
+                                fileContent += `\n[${file.name}]: [无法解码文件内容]`;
+                            }
+                        }
+                    }
+                }
+                
+                const requestData = {
+                    inputs: {},
+                    query: message + fileContent,
+                    response_mode: 'blocking',
+                    user: AppState.getUserId()
+                };
+                
+                if (conversationId) {
+                    requestData.conversation_id = conversationId;
+                }
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 300000);
+                
+                try {
+                    const response = await fetch(`${apiBaseUrl}/chat-messages`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify(requestData),
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    removeThinkingBubble();
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        
+                        if (data.conversation_id) {
+                            AppState.updateConversationId(data.conversation_id);
+                        } else {
+                            AppState.refreshTimestamp();
+                        }
+                        
+                        addMessage('ai', data.answer || '抱歉，未获取到有效回复。');
+                    } else {
+                        const errorText = await response.text().catch(() => '');
+                        let errorMsg = `API请求失败: HTTP ${response.status}`;
+                        try {
+                            const errorJson = JSON.parse(errorText);
+                            errorMsg = errorJson.message || errorJson.error?.message || errorMsg;
+                        } catch (e) {
+                            if (errorText) errorMsg += ` - ${errorText}`;
+                        }
+                        throw new Error(errorMsg);
+                    }
+                } catch (error) {
+                    clearTimeout(timeoutId);
+                    throw error;
+                }
+            }
+            
+            function loadPendingIssue() {
+                const pendingIssue = sessionStorage.getItem('pendingIssue');
+                
+                if (pendingIssue) {
+                    try {
+                        const issueData = JSON.parse(pendingIssue);
+                        
+                        issueTitleDisplay.textContent = issueData.title || '-';
+                        currentModel = issueData.model || 'GLM-5';
+                        currentModelDisplay.textContent = currentModel;
+                        
+                        if (issueData.files && issueData.files.length > 0) {
+                            uploadedFiles = issueData.files;
+                            updateSidebarFiles();
+                        }
+                        
+                        const typeTextMap = {
+                            'installation': '安装升级问题',
+                            'operation': '运维问题',
+                            'exbase': 'Exbase迁移问题'
+                        };
+                        const typeText = typeTextMap[issueData.type] || '未知类型';
+                        const formattedText = `问题标题：${issueData.title}\n问题类型：${typeText}\n问题描述：${issueData.description}`;
+                        
+                        sessionStorage.removeItem('pendingIssue');
+                        
+                        setTimeout(() => {
+                            addMessage('user', formattedText, uploadedFiles);
+                            showThinkingBubble();
+                            
+                            const models = getModels();
+                            const selectedModelObj = models.find(m => m.name === currentModel);
+                            
+                            if (selectedModelObj && selectedModelObj.apiKey) {
+                                const apiKey = selectedModelObj.apiKey;
+                                const isGLM = selectedModelObj.type === 'bigmodel';
+                                
+                                if (isGLM) {
+                                    callBigModelAPI(formattedText, selectedModelObj, apiKey, uploadedFiles);
+                                } else {
+                                    callDifyAPI(formattedText, selectedModelObj, apiKey, uploadedFiles);
+                                }
+                            } else {
+                                removeThinkingBubble();
+                                addMessage('ai', '请先在问题提交页面配置并选择模型。');
+                            }
+                        }, 500);
+                        
+                    } catch (e) {
+                        console.error('加载待处理问题失败:', e);
+                    }
+                }
+            }
+            
+            function handleFileUpload(files) {
+                const maxSize = 10 * 1024 * 1024;
+                
+                Array.from(files).forEach(file => {
+                    if (file.size > maxSize) {
+                        showToast('error', `文件 ${file.name} 超过10MB限制`);
+                        return;
+                    }
+                    
+                    const fileId = 'file-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
+                    
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        uploadedFiles.push({
+                            id: fileId,
+                            name: file.name,
+                            size: file.size,
+                            type: file.type,
+                            content: e.target.result,
+                            selected: true,
+                            isNew: true
+                        });
+                        updateSidebarFiles();
+                        showToast('success', `文件 ${file.name} 上传成功`);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+            
+            function resetConversation() {
+                if (!confirm('确定要开始新对话吗？这将清空当前会话的所有消息和文件。')) {
+                    return;
+                }
+                
+                AppState.resetConversation();
+                uploadedFiles = [];
+                messageHistory = [];
+                sessionStorage.removeItem('messageHistory');
+                sessionStorage.removeItem('uploadedFiles');
+                updateSidebarFiles();
+                
+                chatMessages.innerHTML = `
+                    <div class="chat-bubble-ai">
+                        <div class="flex items-center mb-2">
+                            <i class="fa fa-robot text-primary mr-2"></i>
+                            <span class="text-xs font-medium">vastbase 智能助手 - 量仔</span>
+                        </div>
+                        <p>我是 vastbase 智能助手 - 量仔。我可以帮助用户：</p>
+                        <p class="mt-2">1. 基于用户上传的文件、历史对话内容，进行问题诊断与分析。</p>
+                        <p>2. 针对诊断结果，生成清晰、可落地的解决方案。</p>
+                    </div>
+                `;
+                
+                lastMessageTime = '';
+                issueTitleDisplay.textContent = '-';
+                
+                showToast('success', '已开始新对话');
+            }
+            
+            async function exportReport() {
+                if (messageHistory.length <= 1) {
+                    showToast('error', '当前对话为空，无法生成报告');
+                    return;
+                }
+                
+                let contextContent = '';
+                messageHistory.forEach((msg, index) => {
+                    if (msg.content.includes('📊 生成对话分析报告')) return;
+                    const role = msg.role === 'user' ? '用户' : '助手';
+                    contextContent += `### ${role} (${index + 1})\n${msg.content}\n\n`;
+                });
+                
+                const uploadedFilesInfo = uploadedFiles.map(f => `- ${f.name} (${formatFileSize(f.size)})`).join('\n');
+                
+                const reportPrompt = `你是一位专业的技术支持工程师。请基于以下对话上下文，生成一份简洁、专业的**故障分析报告**。
+
+## 报告要求
+- **格式**：Markdown格式
+- **总字数**：控制在800-1200字以内
+
+## 报告结构
+
+### 1. 故障概述（100字以内）
+简要描述故障现象、影响范围和紧急程度。
+
+### 2. 故障分析（200-300字）
+- 故障原因分析
+- 相关日志/错误信息解读
+- 根因定位过程
+
+### 3. 解决方案（300-400字）
+- 具体解决步骤
+- 涉及的配置修改或代码变更
+- 验证方法
+
+### 4. 预防措施与建议（100-200字）
+- 如何避免类似问题
+- 后续优化建议
+
+---
+
+## 对话上下文
+
+${contextContent}
+
+---
+
+## 已上传文件
+
+${uploadedFilesInfo || '无'}
+
+---
+
+请严格按照上述结构生成故障分析报告：`;
+
+                showToast('success', '正在生成报告，请稍候...');
+                showThinkingBubble();
+                
+                addMessage('user', '📊 生成对话分析报告');
+                
+                const models = getModels();
+                const modelConfig = models.find(m => m.name === currentModel);
+                if (!modelConfig) {
+                    removeThinkingBubble();
+                    addMessage('ai', '抱歉，未找到当前模型配置，无法生成报告。');
+                    return;
+                }
+                
+                try {
+                    const apiKey = modelConfig.apiKey;
+                    if (!apiKey) {
+                        throw new Error('API密钥未配置');
+                    }
+                    
+                    const isGLM = modelConfig.type === 'bigmodel';
+                    let reportContent;
+                    
+                    if (isGLM) {
+                        const modelMap = {
+                            'glm-5': 'glm-5',
+                            'glm-4.7': 'glm-4.7v',
+                            'glm-4v': 'glm-4v'
+                        };
+                        
+                        const modelName = modelMap[modelConfig.bigmodel] || 'glm-5';
+                        const apiUrl = modelConfig.apiBaseUrl || 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions';
+                        
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${apiKey}`
+                            },
+                            body: JSON.stringify({
+                                model: modelName,
+                                messages: [
+                                    {
+                                        role: 'system',
+                                        content: '你是一个专业的技术支持报告撰写助手。请根据用户提供的对话上下文，生成结构清晰、内容详实的Markdown格式分析报告。'
+                                    },
+                                    {
+                                        role: 'user',
+                                        content: reportPrompt
+                                    }
+                                ]
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            reportContent = data.choices && data.choices[0] && data.choices[0].message 
+                                ? data.choices[0].message.content 
+                                : '抱歉，报告生成失败。';
+                        } else {
+                            throw new Error('API请求失败');
+                        }
+                    } else {
+                        const apiBaseUrl = getSafeApiBaseUrl(modelConfig.apiBaseUrl);
+                        
+                        const response = await fetch(`${apiBaseUrl}/chat-messages`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${apiKey}`
+                            },
+                            body: JSON.stringify({
+                                inputs: {},
+                                query: reportPrompt,
+                                response_mode: 'blocking',
+                                user: 'user-' + Date.now()
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            reportContent = data.answer || '抱歉，报告生成失败。';
+                        } else {
+                            throw new Error('Dify API请求失败');
+                        }
+                    }
+                    
+                    removeThinkingBubble();
+                    
+                    const now = new Date();
+                    const timestamp = now.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    const fullReport = `# 对话分析报告
+
+**生成时间**: ${timestamp}  
+**使用模型**: ${currentModel}
+
+---
+
+${reportContent}
+
+---
+*本报告由 VastBase 智能助手自动生成*
+`;
+                    
+                    const blob = new Blob([fullReport], { type: 'text/markdown;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `对话分析报告_${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}_${now.getHours().toString().padStart(2,'0')}${now.getMinutes().toString().padStart(2,'0')}.md`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    addMessage('ai', `✅ 报告已生成并下载！\n\n报告包含以下内容：\n- 问题概述\n- 对话摘要\n- 关键发现\n- 解决方案\n- 建议与后续步骤`);
+                    
+                    showToast('success', '报告已生成并下载');
+                } catch (error) {
+                    console.error('生成报告失败:', error);
+                    removeThinkingBubble();
+                    addMessage('ai', getFriendlyErrorMessage(error.message));
+                    showToast('error', '报告生成失败');
+                }
+            }
+            
+            sendBtn.addEventListener('click', sendMessage);
+            
+            chatInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+            
+            attachBtn.addEventListener('click', function() {
+                fileInput.click();
+            });
+            
+            fileInput.addEventListener('change', function(e) {
+                if (this.files.length > 0) {
+                    handleFileUpload(this.files);
+                    this.value = '';
+                }
+            });
+            
+            resetConversationBtn.addEventListener('click', resetConversation);
+            exportReportBtn.addEventListener('click', exportReport);
+            
+            toggleSidebar.addEventListener('click', function() {
+                sidebar.classList.toggle('sidebar-mobile-hidden');
+                sidebar.classList.toggle('sidebar-mobile-visible');
+                sidebarOverlay.classList.toggle('hidden');
+            });
+            
+            sidebarOverlay.addEventListener('click', function() {
+                sidebar.classList.add('sidebar-mobile-hidden');
+                sidebar.classList.remove('sidebar-mobile-visible');
+                sidebarOverlay.classList.add('hidden');
+            });
+            
+            loadPendingIssue();
+            updateSidebarFiles();
+        });
+    </script>
+</body>
+</html>

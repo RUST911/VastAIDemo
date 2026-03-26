@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>提交问题 - 智能数据库管理平台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#4080FF',
+                        neutral: '#F5F7FA',
+                        dark: '#1D2129',
+                        light: '#C9CDD4',
+                        success: '#00B42A',
+                        warning: '#FF7D00',
+                        danger: '#F53F3F'
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-primary {
+                @apply bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors;
+            }
+            .card {
+                @apply bg-white rounded-xl shadow-md border border-gray-100 p-6;
+            }
+        }
+    </style>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+    </style>
+</head>
+<body class="bg-neutral min-h-screen">
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <a href="index.html" class="text-primary text-xl"><i class="fa fa-arrow-left"></i></a>
+                <h1 class="text-xl font-bold text-primary">vastbase 智能助手 - 量仔</h1>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="relative">
+                    <button id="model-select-btn" class="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary/50 bg-white">
+                        <i class="fa fa-cube text-primary"></i>
+                        <span id="current-model-display">GLM-5</span>
+                        <i class="fa fa-chevron-down text-xs text-gray-400"></i>
+                    </button>
+                    <div id="model-selector-panel" class="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg border border-gray-200 hidden z-50 w-80">
+                        <div class="p-2">
+                            <div class="text-xs text-gray-500 px-3 py-2 border-b border-gray-100">选择模型</div>
+                            <div id="model-list" class="max-h-48 overflow-y-auto">
+                                <div id="no-models-tip" class="text-center py-4 text-gray-400 text-sm">
+                                    <i class="fa fa-inbox text-2xl mb-2"></i>
+                                    <p>暂无模型，请添加</p>
+                                </div>
+                            </div>
+                            <div class="border-t border-gray-100 mt-1 pt-1">
+                                <button id="add-new-model-btn" class="w-full px-3 py-2 text-left text-sm text-primary hover:bg-primary/5 rounded-lg flex items-center gap-2">
+                                    <i class="fa fa-plus"></i>
+                                    <span>新增模型</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8 max-w-5xl">
+        <div class="card">
+            <div class="flex items-center mb-6">
+                <i class="fa fa-question-circle text-primary text-2xl mr-3"></i>
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800">提交问题</h2>
+                    <p class="text-sm text-gray-500 mt-1">描述您遇到的问题，我们将为您提供解决方案</p>
+                </div>
+            </div>
+            
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        问题标题 <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="issue-title" placeholder="请输入问题标题" 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">问题类型</label>
+                    <select id="issue-type" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors bg-white">
+                        <option value="installation">安装升级问题</option>
+                        <option value="operation">运维问题</option>
+                        <option value="exbase" selected>Exbase迁移问题</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        详细描述 <span class="text-red-500">*</span>
+                    </label>
+                    <textarea id="issue-description" placeholder="请详细描述您遇到的问题，包括错误信息、操作步骤等..." 
+                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors resize-none" 
+                              rows="6"></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">上传附件（可选）</label>
+                    <div class="flex items-center justify-center w-full h-36 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 hover:border-primary/50 transition-all">
+                        <label for="file-upload" class="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+                            <div class="flex flex-col items-center justify-center pt-3 pb-4">
+                                <i class="fa fa-cloud-upload text-primary text-3xl mb-2"></i>
+                                <p class="mb-1 text-sm text-gray-600"><span class="font-semibold text-primary">点击上传</span> 或拖放文件</p>
+                                <p class="text-xs text-gray-500">支持日志文件、截图、配置文件等 (最大10MB)</p>
+                            </div>
+                            <input id="file-upload" type="file" class="hidden" multiple />
+                        </label>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 mt-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-semibold text-gray-700 text-sm">
+                                <i class="fa fa-paperclip mr-1"></i>已上传文件 
+                                <span id="file-count" class="text-xs text-gray-500 font-normal">(0个)</span>
+                            </h4>
+                        </div>
+                        <div id="uploaded-files-container" class="max-h-48 overflow-y-auto custom-scrollbar">
+                            <div id="uploaded-files" class="grid grid-cols-2 gap-2"></div>
+                            <div id="no-files" class="text-center py-4 text-gray-500 text-sm">
+                                <i class="fa fa-file-o text-lg mb-1"></i>
+                                <p>暂无上传文件</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                    <button id="clear-issue" class="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                        <i class="fa fa-trash mr-2"></i>清空内容
+                    </button>
+                    <button id="submit-issue" class="btn-primary px-6 py-2.5">
+                        <i class="fa fa-paper-plane mr-2"></i>提交问题
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 新增模型弹窗 -->
+    <div id="add-model-modal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-lg font-bold">新增模型</h3>
+                    <button id="close-add-model-modal" class="text-gray-400 hover:text-gray-600">
+                        <i class="fa fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-6">
+                <div class="flex border-b border-gray-200 mb-4">
+                    <button id="tab-glm" class="px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary">GLM模型</button>
+                    <button id="tab-dify" class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700">Dify API</button>
+                </div>
+                
+                <div id="panel-glm">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">模型名称</label>
+                            <input type="text" id="glm-model-name" placeholder="如：GLM-5" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                            <input type="password" id="glm-api-key" placeholder="请输入API Key" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">模型选择</label>
+                            <select id="glm-model-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                                <option value="glm-5">GLM-5</option>
+                                <option value="glm-4.7">GLM-4.7V</option>
+                                <option value="glm-4v">GLM-4V</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">API Base URL（可选）</label>
+                            <input type="text" id="glm-base-url" placeholder="默认使用官方API" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        </div>
+                        <div id="glm-test-result" class="hidden rounded-lg p-3 text-sm"></div>
+                        <button id="test-glm-connection" class="w-full px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors">
+                            <i class="fa fa-plug mr-2"></i>检测连通性
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="panel-dify" class="hidden">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">模型名称</label>
+                            <input type="text" id="dify-model-name" placeholder="如：Dify助手" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                            <input type="password" id="dify-api-key" placeholder="请输入API Key" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">API Base URL</label>
+                            <input type="text" id="dify-base-url" placeholder="默认：/api/dify/v1" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50">
+                        </div>
+                        <div id="dify-test-result" class="hidden rounded-lg p-3 text-sm"></div>
+                        <button id="test-dify-connection" class="w-full px-4 py-2 border border-green-600 text-green-600 rounded-lg hover:bg-green-50 transition-colors">
+                            <i class="fa fa-plug mr-2"></i>检测连通性
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="p-6 border-t border-gray-200 flex justify-end gap-3">
+                <button id="cancel-add-model" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">取消</button>
+                <button id="save-new-model" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let uploadedFiles = [];
+            let currentModel = 'GLM-5';
+            let currentConfigType = 'glm';
+            
+            const fileUpload = document.getElementById('file-upload');
+            const uploadedFilesContainer = document.getElementById('uploaded-files');
+            const noFilesMessage = document.getElementById('no-files');
+            const fileCount = document.getElementById('file-count');
+            const issueTitle = document.getElementById('issue-title');
+            const issueType = document.getElementById('issue-type');
+            const issueDescription = document.getElementById('issue-description');
+            const clearIssueBtn = document.getElementById('clear-issue');
+            const submitIssueBtn = document.getElementById('submit-issue');
+            const modelSelectBtn = document.getElementById('model-select-btn');
+            const modelSelectorPanel = document.getElementById('model-selector-panel');
+            const addNewModelBtn = document.getElementById('add-new-model-btn');
+            const addModelModal = document.getElementById('add-model-modal');
+            const closeAddModelModal = document.getElementById('close-add-model-modal');
+            const cancelAddModel = document.getElementById('cancel-add-model');
+            const saveNewModel = document.getElementById('save-new-model');
+            const tabGlm = document.getElementById('tab-glm');
+            const tabDify = document.getElementById('tab-dify');
+            const panelGlm = document.getElementById('panel-glm');
+            const panelDify = document.getElementById('panel-dify');
+            const glmTestResult = document.getElementById('glm-test-result');
+            const difyTestResult = document.getElementById('dify-test-result');
+            
+            function getModels() {
+                return JSON.parse(localStorage.getItem('models') || '[]');
+            }
+            
+            function saveModel(modelData) {
+                const models = getModels();
+                models.push(modelData);
+                localStorage.setItem('models', JSON.stringify(models));
+            }
+            
+            function deleteModel(modelId) {
+                const models = getModels();
+                const updatedModels = models.filter(model => model.id !== modelId);
+                localStorage.setItem('models', JSON.stringify(updatedModels));
+            }
+            
+            function loadModelList() {
+                const models = getModels();
+                const modelList = document.getElementById('model-list');
+                modelList.innerHTML = '';
+                
+                if (models.length > 0) {
+                    models.forEach(model => {
+                        const modelItem = document.createElement('div');
+                        modelItem.className = 'px-3 py-2 hover:bg-gray-50 cursor-pointer flex items-center justify-between';
+                        modelItem.innerHTML = `
+                            <div>
+                                <p class="font-medium">${model.name}</p>
+                                <p class="text-xs text-gray-500">${model.type === 'dify-api' ? 'Dify API' : 'BigModel'}</p>
+                            </div>
+                            <button class="delete-model-btn text-gray-400 hover:text-red-500 px-2 py-1 rounded hover:bg-red-50 flex items-center gap-1">
+                                <i class="fa fa-trash"></i>
+                                <span>删除</span>
+                            </button>
+                        `;
+                        
+                        const deleteBtn = modelItem.querySelector('.delete-model-btn');
+                        deleteBtn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            deleteModel(model.id);
+                            loadModelList();
+                        });
+                        
+                        modelItem.addEventListener('click', function(e) {
+                            if (!e.target.closest('.delete-model-btn')) {
+                                selectModel(model);
+                            }
+                        });
+                        
+                        modelList.appendChild(modelItem);
+                    });
+                } else {
+                    const noModelsTip = document.createElement('div');
+                    noModelsTip.id = 'no-models-tip';
+                    noModelsTip.className = 'text-center py-4 text-gray-400 text-sm';
+                    noModelsTip.innerHTML = `
+                        <i class="fa fa-inbox text-2xl mb-2"></i>
+                        <p>暂无模型，请添加</p>
+                    `;
+                    modelList.appendChild(noModelsTip);
+                }
+            }
+            
+            function selectModel(model) {
+                currentModel = model.name;
+                document.getElementById('current-model-display').textContent = model.name;
+                localStorage.setItem('selectedModel', model.name);
+                modelSelectorPanel.classList.add('hidden');
+                showToast('success', `已选择模型: ${model.name}`);
+            }
+            
+            function switchTab(type) {
+                currentConfigType = type;
+                if (type === 'glm') {
+                    tabGlm.classList.add('border-primary', 'text-primary');
+                    tabGlm.classList.remove('border-transparent', 'text-gray-500');
+                    tabDify.classList.remove('border-green-600', 'text-green-600');
+                    tabDify.classList.add('border-transparent', 'text-gray-500');
+                    panelGlm.classList.remove('hidden');
+                    panelDify.classList.add('hidden');
+                } else {
+                    tabDify.classList.add('border-green-600', 'text-green-600');
+                    tabDify.classList.remove('border-transparent', 'text-gray-500');
+                    tabGlm.classList.remove('border-primary', 'text-primary');
+                    tabGlm.classList.add('border-transparent', 'text-gray-500');
+                    panelDify.classList.remove('hidden');
+                    panelGlm.classList.add('hidden');
+                }
+            }
+            
+            function showTestResult(element, success, message) {
+                element.classList.remove('hidden');
+                if (success) {
+                    element.className = 'rounded-lg p-3 text-sm bg-green-50 text-green-700 border border-green-200';
+                    element.innerHTML = `<i class="fa fa-check-circle mr-2"></i>${message}`;
+                } else {
+                    element.className = 'rounded-lg p-3 text-sm bg-red-50 text-red-700 border border-red-200';
+                    element.innerHTML = `<i class="fa fa-exclamation-circle mr-2"></i>${message}`;
+                }
+            }
+            
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+            
+            function getFileIcon(fileName) {
+                const ext = fileName.split('.').pop().toLowerCase();
+                const iconMap = {
+                    'txt': 'fa-file-text-o',
+                    'pdf': 'fa-file-pdf-o',
+                    'doc': 'fa-file-word-o', 'docx': 'fa-file-word-o',
+                    'xls': 'fa-file-excel-o', 'xlsx': 'fa-file-excel-o',
+                    'ppt': 'fa-file-powerpoint-o', 'pptx': 'fa-file-powerpoint-o',
+                    'jpg': 'fa-file-image-o', 'jpeg': 'fa-file-image-o', 'png': 'fa-file-image-o', 'gif': 'fa-file-image-o',
+                    'zip': 'fa-file-archive-o', 'rar': 'fa-file-archive-o', '7z': 'fa-file-archive-o',
+                    'mp4': 'fa-file-video-o', 'avi': 'fa-file-video-o', 'mov': 'fa-file-video-o',
+                    'mp3': 'fa-file-audio-o', 'wav': 'fa-file-audio-o',
+                    'js': 'fa-file-code-o', 'ts': 'fa-file-code-o', 'py': 'fa-file-code-o',
+                    'log': 'fa-file-text-o', 'json': 'fa-file-code-o', 'xml': 'fa-file-code-o'
+                };
+                return iconMap[ext] || 'fa-file-o';
+            }
+            
+            function isImageFile(file) {
+                return file && file.type && file.type.startsWith('image/');
+            }
+            
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+            
+            function updateFileList() {
+                uploadedFilesContainer.innerHTML = '';
+                
+                if (uploadedFiles.length === 0) {
+                    noFilesMessage.classList.remove('hidden');
+                    fileCount.textContent = '(0个)';
+                } else {
+                    noFilesMessage.classList.add('hidden');
+                    fileCount.textContent = `(${uploadedFiles.length}个)`;
+                    
+                    uploadedFiles.forEach(file => {
+                        const fileItem = document.createElement('div');
+                        fileItem.className = 'flex items-center justify-between p-2 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors';
+                        
+                        const isImage = isImageFile(file.file);
+                        const icon = getFileIcon(file.name);
+                        
+                        fileItem.innerHTML = `
+                            <div class="flex items-center gap-2 overflow-hidden">
+                                <i class="fa ${icon} ${isImage ? 'text-orange-500' : 'text-primary'}"></i>
+                                <span class="text-sm truncate" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
+                                <span class="text-xs text-gray-400 whitespace-nowrap">${formatFileSize(file.size)}</span>
+                            </div>
+                            <button class="remove-file-btn text-gray-400 hover:text-red-500 px-2 py-1 rounded hover:bg-red-50 transition-colors" data-id="${file.id}">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        `;
+                        
+                        fileItem.querySelector('.remove-file-btn').addEventListener('click', function() {
+                            uploadedFiles = uploadedFiles.filter(f => f.id !== file.id);
+                            updateFileList();
+                        });
+                        
+                        uploadedFilesContainer.appendChild(fileItem);
+                    });
+                }
+            }
+            
+            function handleFileUpload(files) {
+                const maxSize = 10 * 1024 * 1024;
+                
+                Array.from(files).forEach(file => {
+                    if (file.size > maxSize) {
+                        showToast('error', `文件 ${file.name} 超过10MB限制`);
+                        return;
+                    }
+                    
+                    const fileId = 'file-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
+                    
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        uploadedFiles.push({
+                            id: fileId,
+                            name: file.name,
+                            size: file.size,
+                            type: file.type,
+                            file: file,
+                            content: e.target.result
+                        });
+                        updateFileList();
+                        showToast('success', `文件 ${file.name} 上传成功`);
+                    };
+                    reader.onerror = function() {
+                        showToast('error', `文件 ${file.name} 读取失败`);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+            
+            function showToast(type, message) {
+                const existingToast = document.getElementById('custom-toast');
+                if (existingToast) existingToast.remove();
+                
+                const toast = document.createElement('div');
+                toast.id = 'custom-toast';
+                toast.className = `fixed top-4 right-4 px-4 py-3 rounded-lg shadow-lg z-50 flex items-center gap-3 transition-opacity duration-500 ${
+                    type === 'success' ? 'bg-green-500 text-white' : 
+                    type === 'error' ? 'bg-red-500 text-white' : 
+                    'bg-blue-500 text-white'
+                }`;
+                toast.innerHTML = `
+                    <i class="fa ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
+                    <span>${message}</span>
+                `;
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    setTimeout(() => toast.remove(), 500);
+                }, 3000);
+            }
+            
+            fileUpload.addEventListener('change', function(e) {
+                if (this.files.length > 0) {
+                    handleFileUpload(this.files);
+                    this.value = '';
+                }
+            });
+            
+            modelSelectBtn.addEventListener('click', function() {
+                modelSelectorPanel.classList.toggle('hidden');
+                loadModelList();
+            });
+            
+            document.addEventListener('click', function(e) {
+                if (!modelSelectBtn.contains(e.target) && !modelSelectorPanel.contains(e.target)) {
+                    modelSelectorPanel.classList.add('hidden');
+                }
+            });
+            
+            addNewModelBtn.addEventListener('click', function() {
+                modelSelectorPanel.classList.add('hidden');
+                addModelModal.classList.remove('hidden');
+                switchTab('glm');
+                glmTestResult.classList.add('hidden');
+                difyTestResult.classList.add('hidden');
+            });
+            
+            closeAddModelModal.addEventListener('click', function() {
+                addModelModal.classList.add('hidden');
+            });
+            
+            cancelAddModel.addEventListener('click', function() {
+                addModelModal.classList.add('hidden');
+            });
+            
+            addModelModal.addEventListener('click', function(e) {
+                if (e.target === addModelModal) {
+                    addModelModal.classList.add('hidden');
+                }
+            });
+            
+            tabGlm.addEventListener('click', () => switchTab('glm'));
+            tabDify.addEventListener('click', () => switchTab('dify'));
+            
+            document.getElementById('test-glm-connection').addEventListener('click', async function() {
+                const apiKey = document.getElementById('glm-api-key').value.trim();
+                const baseUrl = document.getElementById('glm-base-url').value.trim();
+                const modelName = document.getElementById('glm-model-select').value;
+                
+                if (!apiKey) {
+                    showTestResult(glmTestResult, false, '请先输入 API Key');
+                    return;
+                }
+                
+                this.disabled = true;
+                this.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>检测中...';
+                
+                try {
+                    const apiUrl = baseUrl || 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions';
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${apiKey}`
+                        },
+                        body: JSON.stringify({
+                            model: modelName,
+                            messages: [{ role: 'user', content: 'Hi' }],
+                            max_tokens: 5
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        showTestResult(glmTestResult, true, 'GLM 连接成功！API Key 有效');
+                    } else {
+                        const errorData = await response.json().catch(() => ({}));
+                        const errorMsg = errorData.error?.message || `HTTP ${response.status}`;
+                        showTestResult(glmTestResult, false, `连接失败: ${errorMsg}`);
+                    }
+                } catch (error) {
+                    showTestResult(glmTestResult, false, `连接失败: ${error.message}`);
+                } finally {
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fa fa-plug mr-2"></i>检测连通性';
+                }
+            });
+            
+            document.getElementById('test-dify-connection').addEventListener('click', async function() {
+                const apiKey = document.getElementById('dify-api-key').value.trim();
+                const baseUrl = document.getElementById('dify-base-url').value.trim();
+                
+                if (!apiKey) {
+                    showTestResult(difyTestResult, false, '请先输入 API Key');
+                    return;
+                }
+                
+                this.disabled = true;
+                this.innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>检测中...';
+                
+                try {
+                    let apiBaseUrl = baseUrl || '/api/dify/v1';
+                    if (!apiBaseUrl.endsWith('/v1') && !apiBaseUrl.includes('/v1/')) {
+                        apiBaseUrl = apiBaseUrl.replace(/\/$/, '') + '/v1';
+                    }
+                    
+                    const response = await fetch(`${apiBaseUrl}/parameters`, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        showTestResult(difyTestResult, true, 'Dify 连接成功！API Key 有效');
+                    } else if (response.status === 404) {
+                        showTestResult(difyTestResult, true, 'Dify 连接成功（参数接口不可用，但可能有效）');
+                    } else {
+                        const errorData = await response.json().catch(() => ({}));
+                        const errorMsg = errorData.message || `HTTP ${response.status}`;
+                        showTestResult(difyTestResult, false, `连接失败: ${errorMsg}`);
+                    }
+                } catch (error) {
+                    showTestResult(difyTestResult, false, `连接失败: ${error.message}`);
+                } finally {
+                    this.disabled = false;
+                    this.innerHTML = '<i class="fa fa-plug mr-2"></i>检测连通性';
+                }
+            });
+            
+            saveNewModel.addEventListener('click', function() {
+                const modelType = currentConfigType;
+                let modelName, apiKey, modelData;
+                
+                if (modelType === 'glm') {
+                    modelName = document.getElementById('glm-model-name').value.trim();
+                    apiKey = document.getElementById('glm-api-key').value.trim();
+                    const bigmodel = document.getElementById('glm-model-select').value;
+                    const baseUrl = document.getElementById('glm-base-url').value.trim();
+                    
+                    if (!modelName) {
+                        showToast('error', '请输入模型名称');
+                        return;
+                    }
+                    
+                    if (!apiKey) {
+                        showToast('error', '请输入 API Key');
+                        return;
+                    }
+                    
+                    modelData = {
+                        id: Date.now().toString(),
+                        name: modelName,
+                        type: 'bigmodel',
+                        apiKey: apiKey,
+                        bigmodel: bigmodel
+                    };
+                    
+                    if (baseUrl) {
+                        modelData.apiBaseUrl = baseUrl;
+                    }
+                } else {
+                    modelName = document.getElementById('dify-model-name').value.trim();
+                    apiKey = document.getElementById('dify-api-key').value.trim();
+                    const baseUrl = document.getElementById('dify-base-url').value.trim();
+                    
+                    if (!modelName) {
+                        showToast('error', '请输入模型名称');
+                        return;
+                    }
+                    
+                    if (!apiKey) {
+                        showToast('error', '请输入 API Key');
+                        return;
+                    }
+                    
+                    modelData = {
+                        id: Date.now().toString(),
+                        name: modelName,
+                        type: 'dify-api',
+                        apiKey: apiKey,
+                        apiBaseUrl: baseUrl || '/api/dify/v1'
+                    };
+                }
+                
+                saveModel(modelData);
+                addModelModal.classList.add('hidden');
+                loadModelList();
+                showToast('success', `模型 ${modelName} 添加成功`);
+                
+                document.getElementById('glm-model-name').value = '';
+                document.getElementById('glm-api-key').value = '';
+                document.getElementById('glm-base-url').value = '';
+                document.getElementById('dify-model-name').value = '';
+                document.getElementById('dify-api-key').value = '';
+                document.getElementById('dify-base-url').value = '';
+            });
+            
+            clearIssueBtn.addEventListener('click', function() {
+                issueTitle.value = '';
+                issueType.value = 'exbase';
+                issueDescription.value = '';
+                uploadedFiles = [];
+                updateFileList();
+                showToast('success', '表单已清空');
+            });
+            
+            submitIssueBtn.addEventListener('click', async function() {
+                const title = issueTitle.value.trim();
+                const type = issueType.value;
+                const description = issueDescription.value.trim();
+                
+                if (!title) {
+                    showToast('error', '请填写问题标题');
+                    issueTitle.focus();
+                    return;
+                }
+                
+                if (!description) {
+                    showToast('error', '请填写详细描述');
+                    issueDescription.focus();
+                    return;
+                }
+                
+                const models = getModels();
+                if (models.length === 0) {
+                    showToast('error', '请先添加模型');
+                    return;
+                }
+                
+                const selectedModel = models.find(m => m.name === currentModel);
+                if (!selectedModel) {
+                    showToast('error', '请选择一个模型');
+                    modelSelectorPanel.classList.remove('hidden');
+                    return;
+                }
+                
+                const typeTextMap = {
+                    'installation': '安装升级问题',
+                    'operation': '运维问题',
+                    'exbase': 'Exbase迁移问题'
+                };
+                
+                const issueData = {
+                    title: title,
+                    type: type,
+                    typeText: typeTextMap[type] || '未知类型',
+                    description: description,
+                    files: uploadedFiles.map(f => ({
+                        id: f.id,
+                        name: f.name,
+                        size: f.size,
+                        type: f.type,
+                        content: f.content
+                    })),
+                    model: currentModel,
+                    timestamp: Date.now()
+                };
+                
+                sessionStorage.setItem('pendingIssue', JSON.stringify(issueData));
+                
+                showToast('success', '问题已提交，正在跳转...');
+                
+                setTimeout(() => {
+                    window.location.href = 'support-chat.html';
+                }, 500);
+            });
+            
+            loadModelList();
+            updateFileList();
+            
+            const savedModel = localStorage.getItem('selectedModel');
+            if (savedModel) {
+                const models = getModels();
+                const modelExists = models.find(m => m.name === savedModel);
+                if (modelExists) {
+                    currentModel = savedModel;
+                    document.getElementById('current-model-display').textContent = savedModel;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
