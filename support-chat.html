@@ -200,60 +200,6 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .thinking-block {
-            margin: 0 0 12px 0;
-        }
-        .thinking-block details {
-            border-left: 3px solid #e5e7eb;
-            background: #f9fafb;
-            border-radius: 4px;
-        }
-        .thinking-block details[open] summary {
-            border-bottom: 1px solid #e5e7eb;
-        }
-        .thinking-block summary {
-            display: flex;
-            cursor: pointer;
-            user-select: none;
-            list-style: none;
-            align-items: center;
-            white-space: nowrap;
-            padding: 8px 12px;
-            font-weight: 600;
-            font-size: 13px;
-            color: #6b7280;
-            transition: all 0.2s;
-        }
-        .thinking-block summary::-webkit-details-marker {
-            display: none;
-        }
-        .thinking-block summary:hover {
-            background: #f3f4f6;
-        }
-        .thinking-block summary .think-icon {
-            display: flex;
-            align-items: center;
-            margin-right: 8px;
-            flex-shrink: 0;
-        }
-        .thinking-block summary .think-icon svg {
-            width: 12px;
-            height: 12px;
-            transition: transform 0.3s ease;
-            color: #9ca3af;
-        }
-        .thinking-block details[open] summary .think-icon svg {
-            transform: rotate(90deg);
-        }
-        .thinking-content {
-            padding: 12px;
-            font-size: 12px;
-            line-height: 1.6;
-            color: #6b7280;
-            white-space: pre-wrap;
-            max-height: 300px;
-            overflow-y: auto;
-        }
         .typing-indicator {
             display: inline-flex;
             gap: 4px;
@@ -515,7 +461,7 @@
             return '<p>' + html + '</p>';
         }
 
-        function addMessage(role, content, thinkingContent = null, files = null) {
+        function addMessage(role, content, files = null) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
             
@@ -542,32 +488,12 @@
                     </div>
                 `;
             } else {
-                let thinkingHtml = '';
-                if (thinkingContent) {
-                    thinkingHtml = `
-                        <div class="thinking-block">
-                            <details>
-                                <summary>
-                                    <div class="think-icon">
-                                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                        </svg>
-                                    </div>
-                                    <span>已深度思考</span>
-                                </summary>
-                                <div class="thinking-content">${escapeHtml(thinkingContent)}</div>
-                            </details>
-                        </div>
-                    `;
-                }
-                
                 messageDiv.innerHTML = `
                     <div class="max-w-[85%]">
                         <div class="flex items-start gap-2 mb-1">
                             <img src="量仔.png" alt="量仔" class="w-8 h-8 rounded-full flex-shrink-0 object-cover bg-primary">
                             <span class="text-sm text-gray-500 font-medium">量仔</span>
                         </div>
-                        ${thinkingHtml}
                         <div class="bg-gray-100 px-3 py-2 rounded-2xl rounded-tl-md markdown-content assistant-message-text">${parseMarkdown(content)}</div>
                     </div>
                 `;
@@ -676,69 +602,6 @@
             }
         }
 
-        function createStreamingMessage() {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message flex justify-start';
-            messageDiv.innerHTML = `
-                <div class="max-w-[85%]">
-                    <div class="flex items-start gap-2 mb-1">
-                        <img src="量仔.png" alt="量仔" class="w-8 h-8 rounded-full flex-shrink-0 object-cover bg-primary">
-                        <span class="text-sm text-gray-500 font-medium">量仔</span>
-                    </div>
-                    <div class="thinking-block" style="display: none;">
-                        <details>
-                            <summary>
-                                <div class="think-icon">
-                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-                                    </svg>
-                                </div>
-                                <span class="thinking-status">正在思考...</span>
-                            </summary>
-                            <div class="thinking-content"></div>
-                        </details>
-                    </div>
-                    <div class="bg-gray-100 px-3 py-2 rounded-2xl rounded-tl-md markdown-content assistant-message-text"></div>
-                </div>
-            `;
-            messagesContainer.appendChild(messageDiv);
-            return messageDiv;
-        }
-
-        function updateStreamingMessage(messageEl, fullAnswer, thinkingText, isThinking) {
-            const thinkingBlock = messageEl.querySelector('.thinking-block');
-            const thinkingContent = messageEl.querySelector('.thinking-content');
-            const thinkingStatus = messageEl.querySelector('.thinking-status');
-            const answerContent = messageEl.querySelector('.markdown-content.assistant-message-text');
-            
-            if (thinkingText) {
-                thinkingBlock.style.display = 'block';
-                thinkingContent.textContent = thinkingText;
-                
-                if (isThinking) {
-                    thinkingStatus.textContent = '正在思考...';
-                    thinkingBlock.querySelector('details').open = true;
-                } else {
-                    thinkingStatus.textContent = '已深度思考';
-                }
-            }
-            
-            const cleanAnswer = fullAnswer.replace(/<think&gt;[\s\S]*?<\/think&gt;/g, '').trim();
-            if (cleanAnswer) {
-                answerContent.innerHTML = parseMarkdown(cleanAnswer);
-            }
-        }
-
-        function finalizeThinkingBlock(messageEl, thinkingText) {
-            const thinkingBlock = messageEl.querySelector('.thinking-block');
-            const thinkingStatus = messageEl.querySelector('.thinking-status');
-            
-            if (thinkingText) {
-                thinkingStatus.textContent = '已深度思考';
-                thinkingBlock.querySelector('details').open = false;
-            }
-        }
-
         async function sendMessage(query) {
             if (isGenerating || !query.trim()) return;
             
@@ -749,7 +612,7 @@
             const currentFiles = [...uploadedFiles];
             const filesToSend = currentFiles.length > 0 ? currentFiles : null;
             
-            addMessage('user', query, null, filesToSend);
+            addMessage('user', query, filesToSend);
             uploadedFiles = [];
             updateFilePreview();
             
@@ -794,10 +657,6 @@
                 const decoder = new TextDecoder();
                 let buffer = '';
                 let fullAnswer = '';
-                let thinkingText = '';
-                let currentMessageEl = null;
-                let isInThinking = false;
-                let thinkingBlockEl = null;
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -813,34 +672,17 @@
                                 const data = JSON.parse(line.slice(5));
                                 
                                 if (data.event === 'message') {
-                                    const chunk = data.answer;
-                                    fullAnswer += chunk;
-                                    
-                                    if (chunk.includes('<think&gt;')) {
-                                        isInThinking = true;
-                                    }
-                                    
-                                    if (isInThinking) {
-                                        const thinkMatch = fullAnswer.match(/<think&gt;([\s\S]*?)(?:<\/think&gt;|$)/);
-                                        if (thinkMatch) {
-                                            thinkingText = thinkMatch[1];
-                                        }
-                                        
-                                        if (chunk.includes('</think&gt;')) {
-                                            isInThinking = false;
-                                        }
-                                    }
-                                    
-                                    if (!currentMessageEl) {
-                                        currentMessageEl = createStreamingMessage();
-                                    }
-                                    
-                                    updateStreamingMessage(currentMessageEl, fullAnswer, thinkingText, isInThinking);
-                                    scrollToBottom();
+                                    fullAnswer += data.answer || '';
                                 } else if (data.event === 'message_end') {
                                     conversationId = data.conversation_id;
-                                    if (currentMessageEl) {
-                                        finalizeThinkingBlock(currentMessageEl, thinkingText);
+                                } else if (data.event === 'workflow_finished') {
+                                    conversationId = data.conversation_id;
+                                    if (data.outputs) {
+                                        for (const key in data.outputs) {
+                                            if (data.outputs[key]) {
+                                                fullAnswer += data.outputs[key];
+                                            }
+                                        }
                                     }
                                 } else if (data.event === 'error') {
                                     throw new Error(data.message);
@@ -854,6 +696,11 @@
                     }
                 }
 
+                let cleanAnswer = fullAnswer;
+                cleanAnswer = cleanAnswer.replace(/<think[\s\S]*?<\/think>/g, '');
+                cleanAnswer = cleanAnswer.replace(/<think&gt;[\s\S]*?<\/think&gt;/g, '');
+                cleanAnswer = cleanAnswer.trim();
+                addMessage('assistant', cleanAnswer);
                 setStatus('在线', 'text-green-500');
                 loadConversations();
                 
@@ -883,12 +730,6 @@
                 sendBtn.click();
             }
         });
-
-        function testThinkingBlock() {
-            const testContent = '这是一个测试思考内容\n支持多行显示\n可以验证折叠效果是否正常工作';
-            addMessage('assistant', '这是一条测试消息，用于验证思考内容的折叠效果。', testContent);
-            console.log('测试思考块已添加，请查看消息区域');
-        }
 
         document.addEventListener('DOMContentLoaded', function() {
             const pendingIssueJSON = sessionStorage.getItem('pendingIssue');
@@ -1047,7 +888,11 @@
                         addMessage('user', msg.query);
                     }
                     if (msg.answer) {
-                        addMessage('assistant', msg.answer);
+                        let cleanAnswer = msg.answer;
+                        cleanAnswer = cleanAnswer.replace(/<think[\s\S]*?<\/think>/g, '');
+                        cleanAnswer = cleanAnswer.replace(/<think&gt;[\s\S]*?<\/think&gt;/g, '');
+                        cleanAnswer = cleanAnswer.trim();
+                        addMessage('assistant', cleanAnswer);
                     }
                 });
                 
