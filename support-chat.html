@@ -392,11 +392,7 @@
     <script>
         const DIFY_API_KEY = 'app-99L4qvG2FF9611Pl6OkYSkbo';
         const DIFY_BASE_URL = 'http://101.35.56.39/v1';
-        const DIFY_USER_ID = localStorage.getItem('dify_user_id') || (() => {
-            const userId = 'user-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('dify_user_id', userId);
-            return userId;
-        })();
+        const DIFY_USER_ID = 'mvs-user';
         
         let conversationId = '';
         let isGenerating = false;
@@ -732,62 +728,15 @@
         });
 
         document.addEventListener('DOMContentLoaded', function() {
-            const pendingIssueJSON = sessionStorage.getItem('pendingIssue');
-            
-            if (pendingIssueJSON) {
-                try {
-                    const data = JSON.parse(pendingIssueJSON);
-                    
-                    let report = `### 问题澄清单\n\n`;
-                    report += `**客户名称:** ${data.customerName}\n`;
-                    report += `**问题环境:** ${data.environment}\n`;
-                    report += `**产品版本:** ${data.productVersion}\n`;
-                    report += `**硬件平台:** ${data.hardwarePlatform}\n`;
-                    report += `**操作系统:** ${data.osVersion}\n`;
-                    report += `**问题严重性:** ${data.severity}\n`;
-                    report += `**紧急程度:** ${data.urgency}\n\n`;
-                    report += `#### 问题详情\n\n`;
-                    report += `**问题大类:** ${data.category}\n`;
+            const urlParams = new URLSearchParams(window.location.search);
+            const conversationIdParam = urlParams.get('conversation_id');
 
-                    if (data.category === 'exBase') {
-                        report += `**源库及版本:** ${data.exBase.sourceDbVersion}\n`;
-                        report += `**目标库及版本:** ${data.exBase.targetDbVersion}\n`;
-                        report += `**执行具体动作:** ${data.exBase.actionExecuted}\n`;
-                    } else if (data.category === 'G100') {
-                        report += `**兼容模式:** ${data.g100.compatMode}\n`;
-                    } else if (data.category === 'VEM') {
-                        report += `**功能模块:** ${data.vem.featureModule}\n`;
-                        report += `**复现步骤:** ${data.vem.reproSteps}\n`;
-                    }
-                    
-                    report += `\n**问题描述:**\n${data.description}\n\n`;
-
-                    if (data.files && data.files.length > 0) {
-                        report += `--- \n### 附件信息\n`;
-                        data.files.forEach(file => {
-                            report += `- **${file.name}** (${(file.size / 1024).toFixed(2)} KB)\n`;
-                            if (file.type && file.type.startsWith('text/')) {
-                                try {
-                                    const fileContent = atob(file.content.split(',')[1]);
-                                    report += '```\n' + fileContent.substring(0, 1000) + (fileContent.length > 1000 ? '...内容已截断' : '') + '\n```\n';
-                                } catch (e) {
-                                    report += '`无法预览文件内容`\n';
-                                }
-                            }
-                        });
-                    }
-
-                    sessionStorage.removeItem('pendingIssue');
-                    
-                    setTimeout(() => {
-                        sendMessage(report);
-                    }, 500);
-                    
-                } catch (e) {
-                    console.error("解析问题数据失败:", e);
-                }
+            if (conversationIdParam) {
+                conversationId = conversationIdParam;
+                currentConversationId = conversationIdParam;
+                switchConversation(conversationIdParam);
             }
-            
+
             loadConversations();
         });
 

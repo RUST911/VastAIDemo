@@ -33,6 +33,11 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    if (pathname === '/api/mvs/submit' && req.method === 'POST') {
+        handleMvsSubmit(req, res);
+        return;
+    }
+
     serveStaticFile(req, res, pathname);
 });
 
@@ -158,9 +163,160 @@ function handleDifyProxy(req, res, pathname, parsedUrl) {
     });
 }
 
-server.listen(PORT, '127.0.0.1', () => {
-    console.log(`Server running at http://127.0.0.1:${PORT}/`);
+const MVS_DIFY_API_KEY = 'app-99L4qvG2FF9611Pl6OkYSkbo';
+
+function handleMvsSubmit(req, res) {
+    console.log('[MVS Submit] 收到MVS服务提交请求');
+
+    let body = [];
+    req.on('data', (chunk) => {
+        body.push(chunk);
+    });
+
+    req.on('end', () => {
+        try {
+            const bodyBuffer = Buffer.concat(body);
+            const requestData = JSON.parse(bodyBuffer.toString());
+
+            console.log('[MVS Submit] 请求数据:', JSON.stringify(requestData, null, 2));
+
+            if (!requestData || Object.keys(requestData).length === 0) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    error: 'Bad Request',
+                    message: '请求数据不能为空'
+                }));
+                return;
+            }
+
+            const sessionId = 'mvs-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            const queryText = JSON.stringify(requestData, null, 2);
+            const userId = 'mvs-user';
+
+            const difyRequestBody = JSON.stringify({
+                inputs: {},
+                query: queryText,
+                response_mode: 'streaming',
+                user: userId
+            });
+
+            const targetUrl = new URL(DIFY_API_BASE);
+            const isHttps = targetUrl.protocol === 'https:';
+            const httpModule = isHttps ? https : http;
+
+            const options = {
+                hostname: targetUrl.hostname,
+                port: targetUrl.port || (isHttps ? 443 : 80),
+                path: '/v1/chat-messages',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${MVS_DIFY_API_KEY}`,
+                    'Content-Length': Buffer.byteLength(difyRequestBody)
+                }
+            };
+
+            const proxyReq = httpModule.request(options, (proxyRes) => {
+                let buffer = '';
+                let responded = false;
+
+                proxyRes.on('data', (chunk) => {
+                    if (responded) return;
+                    buffer += chunk.toString();
+
+                    const lines = buffer.split('\n');
+                    for (const line of lines) {
+                        if (!line.startsWith('data: ')) continue;
+                        const jsonStr = line.slice(6).trim();
+                        if (!jsonStr) continue;
+                        try {
+                            const event = JSON.parse(jsonStr);
+                            if (event.conversation_id) {
+                                responded = true;
+                                const redirectUrl = `http://localhost:${PORT}/support-chat.html?conversation_id=${event.conversation_id}`;
+
+                                res.writeHead(200, {
+                                    'Content-Type': 'application/json',
+                                    'Access-Control-Allow-Origin': '*'
+                                });
+                                res.end(JSON.stringify({
+                                    success: true,
+                                    message: 'MVS工单数据已提交至Dify',
+                                    sessionId: sessionId,
+                                    conversationId: event.conversation_id,
+                                    redirectUrl: redirectUrl
+                                }));
+
+                                console.log(`[MVS Submit] 快速返回，sessionId: ${sessionId}, conversationId: ${event.conversation_id}`);
+                                break;
+                            }
+                        } catch (e) {}
+                    }
+                });
+
+                proxyRes.on('end', () => {
+                    if (!responded) {
+                        console.error('[MVS Submit] Dify未返回conversation_id');
+                        res.writeHead(502, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({
+                            error: 'Dify Error',
+                            message: 'Dify未返回有效的conversation_id'
+                        }));
+                    }
+                });
+            });
+
+            proxyReq.setTimeout(30000, () => {
+                console.error('[MVS Submit] 等待conversation_id超时');
+                proxyReq.destroy();
+                if (!res.headersSent) {
+                    res.writeHead(504, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({
+                        error: 'Gateway Timeout',
+                        message: '等待Dify conversation_id超时',
+                        code: 504
+                    }));
+                }
+            });
+
+            proxyReq.on('error', (error) => {
+                console.error('[MVS Submit] Dify请求错误:', error.message);
+                if (!res.headersSent) {
+                    res.writeHead(502, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({
+                        error: 'Dify Proxy Error',
+                        message: error.message
+                    }));
+                }
+            });
+
+            proxyReq.write(difyRequestBody);
+            proxyReq.end();
+
+        } catch (error) {
+            console.error('[MVS Submit] 处理错误:', error.message);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+                error: 'Internal Server Error',
+                message: error.message
+            }));
+        }
+    });
+
+    req.on('error', (error) => {
+        console.error('[MVS Submit] 请求错误:', error.message);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+            error: 'Request Error',
+            message: error.message
+        }));
+    });
+}
+
+server.listen(PORT, () => {
+    console.log(`Server running at http://localhost:${PORT}/`);
     console.log(`Dify API Proxy: /api/dify/* -> ${DIFY_API_BASE}/*`);
+    console.log(`MVS Submit API: POST /api/mvs/submit`);
 });
 
 server.setTimeout(310000);
