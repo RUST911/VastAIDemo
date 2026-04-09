@@ -19,7 +19,8 @@ function getLocalIP() {
     return '127.0.0.1';
 }
 
-const LOCAL_IP = getLocalIP();
+// Hardcoded IP address for cloud server
+const LOCAL_IP = '43.139.131.125';
 const DIFY_API_BASE = 'http://101.35.56.39';
 
 const MIME_TYPES = {
