@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .content-auto {
+    content-visibility: auto;
+  }
+  .module-card {
+    @apply bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 border border-gray-100;
+  }
+  .module-header {
+    @apply text-primary font-bold flex items-center gap-2 mb-4;
+  }
+  .feature-item {
+    @apply flex items-start gap-2 py-2 border-b border-gray-50 last:border-0;
+  }
+  .nav-link {
+    @apply px-4 py-2 rounded-lg hover:bg-primary/10 transition-colors duration-200 cursor-pointer;
+  }
+  .nav-link.active {
+    @apply bg-primary text-white;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c9cdd4;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a0a4ab;
+}

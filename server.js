@@ -71,7 +71,7 @@ function serveStaticFile(req, res, pathname) {
         console.error('[Static] URL decode error:', e.message);
     }
     
-    filePath = path.join(__dirname, filePath);
+    filePath = path.join(__dirname, 'dist', filePath);
     
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
@@ -79,8 +79,16 @@ function serveStaticFile(req, res, pathname) {
     fs.readFile(filePath, (err, data) => {
         if (err) {
             if (err.code === 'ENOENT') {
-                res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
-                res.end('<h1>404 Not Found</h1>');
+                const indexPath = path.join(__dirname, 'dist', 'index.html');
+                fs.readFile(indexPath, (indexErr, indexData) => {
+                    if (indexErr) {
+                        res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
+                        res.end('<h1>404 Not Found</h1>');
+                        return;
+                    }
+                    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                    res.end(indexData);
+                });
             } else {
                 res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
                 res.end('<h1>500 Internal Server Error</h1>');
@@ -88,9 +96,10 @@ function serveStaticFile(req, res, pathname) {
             return;
         }
         
+        const cacheControl = ext === '.html' ? 'no-cache' : 'public, max-age=31536000';
         res.writeHead(200, {
             'Content-Type': contentType,
-            'Cache-Control': 'no-cache'
+            'Cache-Control': cacheControl
         });
         res.end(data);
     });
@@ -303,7 +312,7 @@ function handleMvsSubmit(req, res) {
                             const event = JSON.parse(jsonStr);
                             if (event.conversation_id) {
                                 responded = true;
-                                const redirectUrl = `http://${LOCAL_IP}:${PORT}/support-chat.html?conversation_id=${event.conversation_id}`;
+                                const redirectUrl = `http://${LOCAL_IP}:${PORT}/chat?conversation_id=${event.conversation_id}`;
 
                                 res.writeHead(200, {
                                     'Content-Type': 'application/json',

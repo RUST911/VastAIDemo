@@ -1,23 +1,31 @@
 {
   "name": "vastbase-support",
-  "version": "1.0.0",
-  "description": "Vastbase 智能助手支持页面",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
   "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
     "start": "node server.js",
-    "dev": "node server.js",
-    "dev:static": "http-server -p 8081 -c-1"
-  },
-  "keywords": [
-    "vastbase",
-    "support",
-    "ai"
-  ],
-  "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "http-server": "^14.1.1"
+    "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "dotenv": "^17.4.2"
+    "chart.js": "^4.4.8",
+    "dotenv": "^17.4.2",
+    "marked": "^15.0.7",
+    "pinia": "^3.0.2",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.7.3",
+    "vite": "^6.1.0",
+    "vue-tsc": "^2.2.0"
   }
 }
