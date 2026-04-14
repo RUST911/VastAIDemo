@@ -75,3 +75,4 @@ export function debounce<T extends (...args: any[]) => void>(fn: T, delay: numbe
     timer = setTimeout(() => fn(...args), delay)
   }) as any
 }
+export * from './exportReport'

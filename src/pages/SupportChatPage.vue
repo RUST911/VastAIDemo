@@ -64,10 +64,21 @@
               </div>
             </div>
           </div>
-          <router-link to="/" class="back-home-btn">
-            <i class="fa fa-home" />
-            <span>返回首页</span>
-          </router-link>
+          <div class="chat-header-right">
+            <button 
+              class="export-btn" 
+              @click="exportConversation" 
+              :disabled="chatStore.messages.length === 0"
+              title="导出对话报告"
+            >
+              <i class="fa fa-download" />
+              <span>导出报告</span>
+            </button>
+            <router-link to="/" class="back-home-btn">
+              <i class="fa fa-home" />
+              <span>返回首页</span>
+            </router-link>
+          </div>
         </header>
 
         <!-- Messages -->
@@ -260,7 +271,7 @@ import {
   uploadFile,
   DEFAULT_USER_ID,
 } from '@/api'
-import { generateId, formatTime } from '@/utils'
+import { generateId, formatTime, exportCurrentConversation } from '@/utils'
 import type { ChatMessage, Conversation, DifyFile } from '@/types'
 
 const route = useRoute()
@@ -605,6 +616,13 @@ function handleNewChat() {
   closeSidebar()
   setStatus('在线', 'online')
   nextTick(() => inputRef.value?.focus())
+}
+
+function exportConversation() {
+  const currentConv = conversations.value.find(
+    conv => conv.id === chatStore.currentConversationId
+  )
+  exportCurrentConversation(chatStore.messages, currentConv)
 }
 
 async function loadConversations() {
@@ -1003,6 +1021,12 @@ onUnmounted(() => {
   gap: 8px;
 }
 
+.chat-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .icon-btn {
   width: 36px;
   height: 36px;
@@ -1086,6 +1110,42 @@ onUnmounted(() => {
 .status-online { color: #00B42A; }
 .status-thinking { color: #165DFF; }
 .status-error { color: #F53F3F; }
+
+.export-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #165DFF;
+  background: #F2F3F5;
+  border: 1px solid #E5E6EB;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-decoration: none;
+  border: none;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.export-btn:hover {
+  background: #E5E6EB;
+  color: #165DFF;
+}
+
+.export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.export-btn:disabled:hover {
+  background: #F2F3F5;
+  color: #4E5969;
+}
 
 .back-home-btn {
   display: flex;
@@ -1651,7 +1711,7 @@ onUnmounted(() => {
   .sidebar.open { left: 0; }
   .sidebar-overlay { display: block; }
   .sidebar-toggle { display: flex; }
-  .back-home-btn span { display: none; }
+  .back-home-btn span, .export-btn span { display: none; }
   .agent-name { font-size: 13px; }
 
   .messages-area { padding: 16px 12px; }
