@@ -1,11 +1,12 @@
-require('dotenv').config();
+import { config } from 'dotenv';
+config();
 
-const http = require('http');
-const https = require('https');
-const fs = require('fs');
-const path = require('path');
-const url = require('url');
-const os = require('os');
+import http from 'http';
+import https from 'https';
+import fs from 'fs';
+import path from 'path';
+import url from 'url';
+import os from 'os';
 
 const PORT = parseInt(process.env.PORT) || 8081;
 
@@ -53,6 +54,11 @@ const server = http.createServer((req, res) => {
 
     if (pathname === '/api/mvs/submit' && req.method === 'POST') {
         handleMvsSubmit(req, res);
+        return;
+    }
+
+    if (pathname === '/api/health' && req.method === 'GET') {
+        handleHealthCheck(req, res);
         return;
     }
 
@@ -231,6 +237,33 @@ function sanitizeJsonString(str) {
         }
     }
     return result;
+}
+
+function handleHealthCheck(req, res) {
+    console.log('[Health] 收到健康检查请求');
+    
+    const healthStatus = {
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        service: 'VastAIDemo',
+        version: '2.0.0',
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        environment: process.env.NODE_ENV || 'development',
+        endpoints: {
+            dify: '/api/dify/*',
+            mvs: '/api/mvs/submit',
+            health: '/api/health'
+        }
+    };
+    
+    res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Access-Control-Allow-Origin': '*'
+    });
+    
+    res.end(JSON.stringify(healthStatus, null, 2));
 }
 
 function handleMvsSubmit(req, res) {

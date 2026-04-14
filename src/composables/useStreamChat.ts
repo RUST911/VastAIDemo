@@ -84,15 +84,11 @@ export function useStreamChat(options: UseStreamChatOptions = {}) {
             conversationId.value = event.conversation_id
           }
 
-          if (event.delta) {
-            throttledAppend(event.delta)
-          }
-
-          if (event.answer && !event.delta) {
+          if (event.event === 'message' && event.answer) {
             throttledAppend(event.answer)
           }
 
-          if (event.finish_reason === 'stop') {
+          if (event.event === 'message_end') {
             flushRemaining()
             options.onFinish?.(streamingText.value, conversationId.value)
             isStreaming.value = false

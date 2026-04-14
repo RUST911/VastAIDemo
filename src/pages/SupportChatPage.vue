@@ -156,7 +156,6 @@
       </div>
     </div>
 
-    <AppFooter />
   </div>
 </template>
 
@@ -165,7 +164,6 @@ import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { marked } from 'marked'
 import AppHeader from '@/components/AppHeader.vue'
-import AppFooter from '@/components/AppFooter.vue'
 import { useChatStore } from '@/stores/chat'
 import { useStreamChat } from '@/composables/useStreamChat'
 import {
@@ -743,14 +741,15 @@ onMounted(async () => {
 .chat-page {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: #f3f4f6;
 }
 
 .main-container {
   display: flex;
   flex: 1;
-  height: calc(100vh - 120px);
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -883,6 +882,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   background: white;
+  min-height: 0;
 }
 
 .chat-header {
@@ -892,12 +892,14 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .messages-container {
   flex: 1;
   overflow-y: auto;
   padding: 1rem;
+  min-height: 0;
 }
 
 .message {
@@ -1052,6 +1054,7 @@ onMounted(async () => {
   border-top: 1px solid #e5e7eb;
   padding: 16px;
   background: #f9fafb;
+  flex-shrink: 0;
 }
 
 .file-preview-container {

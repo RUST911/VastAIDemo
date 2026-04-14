@@ -1,0 +1,61 @@
+[Unit]
+Description=VastAIDemo Intelligent Database Management Platform
+Documentation=https://github.com/RUST911/VastAIDemo
+After=network.target
+Wants=network.target
+Requires=network-online.target
+
+[Service]
+Type=simple
+User=nobody
+Group=nogroup
+WorkingDirectory=__INSTALL_DIR__
+EnvironmentFile=__INSTALL_DIR__/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node __INSTALL_DIR__/server.js
+Restart=always
+RestartSec=10
+StartLimitInterval=300
+StartLimitBurst=5
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=VastAIDemo
+SyslogFacility=daemon
+SyslogLevel=info
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=__INSTALL_DIR__
+ReadOnlyPaths=/usr /lib /lib64
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+MemoryDenyWriteExecute=true
+LockPersonality=true
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+LimitCORE=0
+LimitMEMLOCK=64M
+LimitSTACK=8M
+LimitRSS=infinity
+LimitAS=infinity
+LimitFSIZE=infinity
+LimitDATA=infinity
+
+# Process management
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+SendSIGKILL=yes
+
+[Install]
+WantedBy=multi-user.target
+Alias=VastAIDemo.service
