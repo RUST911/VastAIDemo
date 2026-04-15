@@ -8,8 +8,9 @@ import path from 'path';
 import url from 'url';
 import os from 'os';
 
-const PORT = parseInt(process.env.PORT) || 8081;
-const PUBLIC_PORT = parseInt(process.env.PUBLIC_PORT) || PORT;
+// PUBLIC_PORT 是用户访问端口，PORT 作为别名兼容旧配置
+const PUBLIC_PORT = parseInt(process.env.PUBLIC_PORT) || parseInt(process.env.PORT) || 3000;
+const PORT = PUBLIC_PORT;
 
 const LOCAL_IP = process.env.LOCAL_IP || '43.139.131.125';
 const DIFY_API_BASE = process.env.DIFY_API_BASE || 'http://101.35.56.39';

@@ -60,8 +60,8 @@ echo $SERVER_PID > "$PID_FILE"
 sleep 2
 if kill -0 "$SERVER_PID" 2>/dev/null; then
     # 读取端口
-    PORT=$(grep -E '^PORT=' .env | cut -d'=' -f2 | tr -d ' ')
-    PORT=${PORT:-8081}
+    PORT=$(grep -E '^PUBLIC_PORT=' .env | cut -d'=' -f2 | tr -d ' ')
+    PORT=${PORT:-3000}
     echo ""
     echo "========================================="
     echo " 启动成功"

@@ -62,8 +62,7 @@ vi .env
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `PORT` | 后端服务端口 | `8081` |
-| `PUBLIC_PORT` | 对外访问端口（反向代理场景） | 同 `PORT` |
+| `PUBLIC_PORT` | 服务对外暴露端口（用户访问） | `3000` |
 | `LOCAL_IP` | 服务器 IP 或域名 | `localhost` |
 | `DIFY_API_BASE` | Dify API 地址 | — |
 | `DIFY_API_KEY` | Dify API 密钥（必填） | — |
@@ -112,13 +111,13 @@ bash stop.sh && bash start.sh
 
 ```bash
 # 健康检查
-curl http://localhost:8081/api/health
+curl http://localhost:3000/api/health
 
 # 检查端口占用
-ss -tlnp | grep 8081
+ss -tlnp | grep 3000
 
 # 开放防火墙（如使用 ufw）
-ufw allow 8081/tcp
+ufw allow 3000/tcp
 ```
 
 ## 项目结构
