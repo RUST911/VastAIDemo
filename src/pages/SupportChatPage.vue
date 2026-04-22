@@ -35,8 +35,8 @@
               :class="{ active: chatStore.currentConversationId === conv.id }"
               @click="handleSwitchConversation(conv.id)"
             >
-              <div class="conv-icon">
-                <i class="fa fa-comments" />
+              <div class="conv-icon" :style="chatStore.currentConversationId !== conv.id ? { background: getConvColor(conv.id), color: 'transparent' } : {}">
+                <span class="conv-icon-letter">{{ getConvLetter(conv.title) }}</span>
               </div>
               <div class="conv-meta">
                 <div class="conv-title">{{ conv.title || '未命名对话' }}</div>
@@ -73,8 +73,17 @@
               :disabled="chatStore.messages.length === 0"
               title="导出对话报告"
             >
-              <i class="fa fa-download" />
+              <i class="fa fa-file-text-o" />
               <span>导出报告</span>
+            </button>
+            <button
+              class="feedback-btn"
+              @click="openFeedback(undefined)"
+              :disabled="chatStore.messages.length === 0"
+              title="提交反馈"
+            >
+              <i class="fa fa-flag" />
+              <span>反馈</span>
             </button>
             <router-link to="/" class="back-home-btn">
               <i class="fa fa-home" />
@@ -115,7 +124,24 @@
             >
               <!-- User message -->
               <template v-if="msg.role === 'user'">
-                <div class="user-msg-wrap">
+                <!-- Feedback card -->
+                <div v-if="msg.feedbackData" class="feedback-msg-wrap">
+                  <div class="feedback-msg-card">
+                    <div class="feedback-msg-card-header">
+                      <i class="fa fa-comment-o" style="color:var(--primary)" />
+                      <span>用户反馈</span>
+                      <span class="feedback-msg-rating" :class="msg.feedbackData.rating === 'like' ? 'rating-like' : msg.feedbackData.rating === 'dislike' ? 'rating-dislike' : 'rating-null'">
+                        <i :class="msg.feedbackData.rating === 'like' ? 'fa fa-thumbs-up' : msg.feedbackData.rating === 'dislike' ? 'fa fa-thumbs-down' : 'fa fa-minus'" />
+                        {{ msg.feedbackData.rating === 'like' ? '有帮助' : msg.feedbackData.rating === 'dislike' ? '没帮助' : '未评分' }}
+                      </span>
+                      <span class="feedback-msg-time">{{ new Date(msg.feedbackData.timestamp).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) }}</span>
+                    </div>
+                    <div v-if="msg.feedbackData.content" class="feedback-msg-content">{{ msg.feedbackData.content }}</div>
+                    <div v-else class="feedback-msg-no-content">（无文字说明）</div>
+                  </div>
+                </div>
+                <!-- Normal user bubble -->
+                <div v-else class="user-msg-wrap">
                   <div class="user-bubble" :class="{ 'ticket-bubble': msg.ticketData }">
                     <MvsTicketCard v-if="msg.ticketData" :ticket="msg.ticketData" />
                     <div v-else class="markdown-content" v-html="renderContent(msg.content)" />
@@ -305,6 +331,79 @@
       </div>
     </div>
   </div>
+
+  <!-- Feedback Modal -->
+  <Teleport to="body">
+    <div v-if="feedbackModal" class="feedback-overlay" @click.self="closeFeedback">
+      <div class="feedback-dialog">
+        <div class="feedback-dialog-header">
+          <span class="feedback-dialog-title">
+            <i class="fa fa-comment-o" style="color:#165DFF;margin-right:6px" />
+            提交反馈
+          </span>
+          <button class="feedback-close-btn" @click="closeFeedback">
+            <i class="fa fa-times" />
+          </button>
+        </div>
+
+        <div v-if="feedbackDone" class="feedback-done">
+          <i class="fa fa-check-circle" style="color:#00B42A;font-size:32px" />
+          <p>感谢您的反馈！</p>
+        </div>
+
+        <template v-else>
+          <div class="feedback-dialog-body">
+            <p class="feedback-label">这条回答对您有帮助吗？</p>
+            <div class="feedback-rating-row">
+              <button
+                class="feedback-rating-btn"
+                :class="{ active: feedbackRating === 'like' }"
+                @click="feedbackRating = feedbackRating === 'like' ? null : 'like'"
+              >
+                <i class="fa fa-thumbs-up" />
+                有帮助
+              </button>
+              <button
+                class="feedback-rating-btn dislike"
+                :class="{ active: feedbackRating === 'dislike' }"
+                @click="feedbackRating = feedbackRating === 'dislike' ? null : 'dislike'"
+              >
+                <i class="fa fa-thumbs-down" />
+                没帮助
+              </button>
+            </div>
+
+            <p class="feedback-label" style="margin-top:16px">补充说明（可选）</p>
+            <textarea
+              v-model="feedbackContent"
+              class="feedback-textarea"
+              placeholder="请描述您的问题或建议，帮助我们改进..."
+              rows="4"
+              maxlength="500"
+            />
+            <div class="feedback-char-count">{{ feedbackContent.length }} / 500</div>
+
+            <div v-if="feedbackConversationId" class="feedback-conv-id">
+              <i class="fa fa-link" style="margin-right:4px;opacity:0.5" />
+              会话 ID：{{ feedbackConversationId }}
+            </div>
+          </div>
+
+          <div class="feedback-dialog-footer">
+            <button class="feedback-cancel-btn" @click="closeFeedback">取消</button>
+            <button
+              class="feedback-submit-btn"
+              :disabled="feedbackSubmitting || (!feedbackRating && !feedbackContent.trim())"
+              @click="submitFeedback"
+            >
+              <i v-if="feedbackSubmitting" class="fa fa-spinner fa-spin" />
+              <span>{{ feedbackSubmitting ? '提交中...' : '提交反馈' }}</span>
+            </button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -321,10 +420,11 @@ import {
   fetchConversationMessages,
   fetchConversations,
   uploadFile,
+  saveFeedbackToDB,
   DEFAULT_USER_ID,
 } from '@/api'
 import { generateId, formatTime, exportCurrentConversation } from '@/utils'
-import type { ChatMessage, Conversation, DifyFile, MessageSegment } from '@/types'
+import type { ChatMessage, Conversation, DifyFile, MessageSegment, FeedbackData } from '@/types'
 
 const route = useRoute()
 const chatStore = useChatStore()
@@ -350,7 +450,7 @@ const {
   reset: streamReset,
 } = useStreamChat({
   userId: () => userId.value,
-  onFinish(fullText) {
+  onFinish(fullText, _convId, messageId) {
     const parsed = parseAnswer(fullText)
     chatStore.addMessage({
       id: generateId(),
@@ -361,7 +461,10 @@ const {
       thinkBlocks: parsed.thinkBlocks,
       segments: parsed.segments,
       beforeThink: parsed.beforeThink,
-      workflowNodes: workflowNodes.value.length ? [...workflowNodes.value] : undefined,
+      workflowNodes: workflowNodes.value.length
+        ? workflowNodes.value.map(n => n.status === 'running' ? { ...n, status: 'succeeded' as const } : n)
+        : undefined,
+      messageId,
     })
     loadConversations()
     setStatus('在线', 'online')
@@ -700,6 +803,69 @@ function scrollToBottomIfNeeded() {
   if (!userScrolledUp.value) scrollToBottom()
 }
 
+// ── Feedback ──────────────────────────────────────────────────
+const feedbackModal = ref(false)
+const feedbackMessageId = ref<string | undefined>(undefined)
+const feedbackConversationId = ref<string | undefined>(undefined)
+const feedbackRating = ref<'like' | 'dislike' | null>(null)
+const feedbackContent = ref('')
+const feedbackSubmitting = ref(false)
+const feedbackDone = ref(false)
+
+function openFeedback(messageId?: string, rating?: 'like' | 'dislike') {
+  feedbackMessageId.value = messageId
+  feedbackConversationId.value = chatStore.currentConversationId || streamConversationId.value || undefined
+  feedbackRating.value = rating ?? null
+  feedbackContent.value = ''
+  feedbackDone.value = false
+  feedbackModal.value = true
+}
+
+function closeFeedback() {
+  feedbackModal.value = false
+}
+
+async function submitFeedback() {
+  if (feedbackSubmitting.value) return
+  feedbackSubmitting.value = true
+  try {
+    const payload: FeedbackData = {
+      type: 'feedback',
+      rating: feedbackRating.value,
+      content: feedbackContent.value.trim(),
+      messageId: feedbackMessageId.value,
+      conversationId: feedbackConversationId.value,
+      userId: userId.value,
+      timestamp: new Date().toISOString(),
+    }
+    const jsonStr = JSON.stringify(payload)
+
+    // 1. 落库
+    await saveFeedbackToDB(payload)
+
+    // 2. 在当前会话插入反馈卡片消息（不触发 AI 回复）
+    chatStore.addMessage({
+      id: generateId(),
+      role: 'user',
+      content: jsonStr,
+      timestamp: Date.now(),
+      feedbackData: payload,
+    })
+    scrollToBottom()
+
+    // 3. 发送到 Dify chatflow（当前会话）
+    const convId = chatStore.currentConversationId || streamConversationId.value || undefined
+    streamSend(jsonStr, convId, [])
+
+    feedbackDone.value = true
+    setTimeout(() => { feedbackModal.value = false }, 1500)
+  } catch {
+    alert('反馈提交失败，请稍后重试')
+  } finally {
+    feedbackSubmitting.value = false
+  }
+}
+
 function toggleSidebar() { sidebarOpen.value = !sidebarOpen.value }
 function closeSidebar() { sidebarOpen.value = false }
 
@@ -733,6 +899,28 @@ function formatConvTime(ts: string | number): string {
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
   if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`
   return `${date.getMonth() + 1}月${date.getDate()}日`
+}
+
+// ── Conv icon helpers ─────────────────────────────────────────
+const CONV_COLORS = [
+  '#fde8e8','#fde8f5','#ede8fd','#e8eafd','#e8f4fd',
+  '#e8fdf4','#fdf6e8','#fde8e8','#e8fdfd','#f0fde8',
+]
+const convColorCache = new Map<string, string>()
+function getConvColor(id: string): string {
+  if (!convColorCache.has(id)) {
+    // deterministic but looks random: hash the id
+    let h = 0
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
+    convColorCache.set(id, CONV_COLORS[h % CONV_COLORS.length])
+  }
+  return convColorCache.get(id)!
+}
+function getConvLetter(title?: string): string {
+  if (!title) return '?'
+  // skip emoji / punctuation, get first CJK or letter
+  const m = title.match(/[\u4e00-\u9fa5a-zA-Z0-9]/)
+  return m ? m[0].toUpperCase() : title[0]
 }
 
 function handleFileSelect(e: Event) {
@@ -922,12 +1110,18 @@ async function handleSwitchConversation(convId: string, mvsTicketData?: Record<s
     msgs.forEach((msg: any) => {
       if (msg.query) {
         const isMvsQuery = msg.query.trimStart().startsWith('【MVS工单信息】')
+        const isFeedback = msg.query.trimStart().startsWith('{"type":"feedback"')
+        let feedbackData: FeedbackData | null = null
+        if (isFeedback) {
+          try { feedbackData = JSON.parse(msg.query.trim()) } catch { /* ignore */ }
+        }
         chatStore.addMessage({
           id: generateId(),
           role: 'user',
           content: cleanWhitespace(msg.query),
           timestamp: Date.now(),
           ticketData: isMvsQuery && mvsTicketData ? mvsTicketData : undefined,
+          feedbackData: feedbackData,
         })
         userCount++
       }
@@ -1260,8 +1454,19 @@ onUnmounted(() => {
   transition: background 0.15s, color 0.15s;
 }
 
+.conv-icon-letter {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  line-height: 1;
+}
+
 .conv-item.active .conv-icon {
   background: rgba(22, 93, 255, 0.12);
+  color: #165DFF;
+}
+
+.conv-item.active .conv-icon .conv-icon-letter {
   color: #165DFF;
 }
 
@@ -1417,33 +1622,36 @@ onUnmounted(() => {
   padding: 7px 14px;
   border-radius: 10px;
   font-size: 13px;
-  font-weight: 500;
-  color: #165DFF;
-  background: #F2F3F5;
-  border: 1px solid #E5E6EB;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  border: none;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
   flex-shrink: 0;
   text-decoration: none;
-  border: none;
   font-family: inherit;
-  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(22,93,255,0.25);
 }
 
 .export-btn:hover {
-  background: #E5E6EB;
-  color: #165DFF;
+  filter: brightness(1.08);
+  box-shadow: 0 4px 14px rgba(22,93,255,0.35);
+  transform: translateY(-1px);
 }
 
 .export-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  filter: none;
 }
 
 .export-btn:disabled:hover {
-  background: #F2F3F5;
-  color: #4E5969;
+  filter: none;
+  transform: none;
 }
 
 .back-home-btn {
@@ -2151,5 +2359,362 @@ onUnmounted(() => {
   .input-area { padding: 10px 12px 12px; }
   .welcome-suggestions { flex-direction: column; align-items: stretch; }
   .suggestion-chip { justify-content: center; }
+}
+
+/* ─── Feedback button (header) ───────────────────────────────── */
+.feedback-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, #FF7D00, #FF9A3C);
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: inherit;
+  box-shadow: 0 2px 8px rgba(255,125,0,0.28);
+}
+
+.feedback-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 4px 14px rgba(255,125,0,0.38);
+  transform: translateY(-1px);
+}
+
+.feedback-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  filter: none;
+}
+
+/* ─── Message quick-action bar ───────────────────────────────── */
+.msg-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.assistant-content:hover .msg-actions {
+  opacity: 1;
+}
+
+.msg-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: none;
+  color: #86909C;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.msg-action-btn:hover {
+  background: #F2F3F5;
+  border-color: #E5E6EB;
+  color: #165DFF;
+}
+
+/* ─── Feedback message card ──────────────────────────────────── */
+.feedback-msg-wrap {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 0;
+  margin-left: auto;
+  max-width: 75%;
+}
+.feedback-msg-card {
+  background: white;
+  border: 1.5px solid var(--primary-glow);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  max-width: 520px;
+  width: fit-content;
+  box-shadow: var(--shadow-sm);
+}
+.feedback-msg-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 8px;
+}
+.feedback-msg-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 20px;
+}
+.rating-like { background: rgba(0,180,42,0.1); color: var(--success); }
+.rating-dislike { background: rgba(245,63,63,0.1); color: var(--danger); }
+.rating-null { background: var(--surface-3); color: var(--text-3); }
+.feedback-msg-time { font-size: 11px; color: var(--text-3); margin-left: auto; font-weight: 400; }
+.feedback-msg-content {
+  font-size: 13px;
+  color: var(--text-1);
+  line-height: 1.6;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+.feedback-msg-no-content {
+  font-size: 12px;
+  color: var(--text-3);
+  font-style: italic;
+}
+
+/* ─── Feedback Modal ─────────────────────────────────────────── */
+.feedback-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: overlay-in 0.2s ease;
+}
+
+@keyframes overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.feedback-dialog {
+  background: white;
+  border-radius: 20px;
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  animation: dialog-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+
+@keyframes dialog-in {
+  from { opacity: 0; transform: scale(0.92) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.feedback-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.feedback-dialog-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1D2129;
+}
+
+.feedback-close-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  color: #86909C;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.15s;
+}
+
+.feedback-close-btn:hover {
+  background: #F2F3F5;
+  color: #1D2129;
+}
+
+.feedback-dialog-body {
+  padding: 18px 20px;
+}
+
+.feedback-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4E5969;
+  margin: 0 0 10px;
+}
+
+.feedback-rating-row {
+  display: flex;
+  gap: 10px;
+}
+
+.feedback-rating-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1.5px solid #E5E6EB;
+  background: #F7F8FC;
+  color: #4E5969;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.feedback-rating-btn:hover {
+  border-color: #165DFF;
+  color: #165DFF;
+  background: rgba(22, 93, 255, 0.04);
+}
+
+.feedback-rating-btn.active {
+  border-color: #165DFF;
+  background: rgba(22, 93, 255, 0.08);
+  color: #165DFF;
+}
+
+.feedback-rating-btn.dislike:hover,
+.feedback-rating-btn.dislike.active {
+  border-color: #F53F3F;
+  background: rgba(245, 63, 63, 0.06);
+  color: #F53F3F;
+}
+
+.feedback-textarea {
+  width: 100%;
+  border: 1.5px solid #E5E6EB;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #1D2129;
+  background: #F7F8FC;
+  resize: none;
+  outline: none;
+  font-family: inherit;
+  line-height: 1.6;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.feedback-textarea:focus {
+  border-color: #165DFF;
+  background: white;
+}
+
+.feedback-textarea::placeholder { color: #C9CDD4; }
+
+.feedback-char-count {
+  text-align: right;
+  font-size: 11px;
+  color: #C9CDD4;
+  margin-top: 4px;
+}
+
+.feedback-conv-id {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #F7F8FC;
+  border-radius: 8px;
+  font-size: 11px;
+  color: #86909C;
+  word-break: break-all;
+}
+
+.feedback-dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px 18px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.feedback-cancel-btn {
+  padding: 8px 18px;
+  border-radius: 10px;
+  border: 1.5px solid #E5E6EB;
+  background: white;
+  color: #4E5969;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.feedback-cancel-btn:hover {
+  background: #F2F3F5;
+  border-color: #D0D3D9;
+}
+
+.feedback-submit-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 20px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #165DFF, #4080FF);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  box-shadow: 0 4px 12px rgba(22, 93, 255, 0.25);
+}
+
+.feedback-submit-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 6px 16px rgba(22, 93, 255, 0.35);
+}
+
+.feedback-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.feedback-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 12px;
+}
+
+.feedback-done p {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1D2129;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .feedback-btn span { display: none; }
 }
 </style>

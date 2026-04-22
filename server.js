@@ -7,9 +7,34 @@ import fs from 'fs';
 import path from 'path';
 import url from 'url';
 import { fileURLToPath } from 'url';
+import pg from 'pg';
+
+const { Pool } = pg;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// ── PostgreSQL ────────────────────────────────────────────────
+const PG_SCHEMA = process.env.PG_SCHEMA || 'public';
+const FEEDBACKS_TABLE = `${PG_SCHEMA}.chat_feedbacks`;
+
+let pgPool = null;
+
+function getPgPool() {
+  if (!pgPool) {
+    pgPool = new Pool({
+      host: process.env.PG_HOST || 'localhost',
+      port: parseInt(process.env.PG_PORT) || 5432,
+      database: process.env.PG_DATABASE || 'postgres',
+      user: process.env.PG_USER || 'postgres',
+      password: process.env.PG_PASSWORD || '',
+    });
+    pgPool.on('error', (err) => console.error('[PG] Pool error:', err.message));
+    pgPool.on('connect', () => console.log('[PG] Connected'));
+  }
+  return pgPool;
+}
+
 
 // PUBLIC_PORT 是用户访问端口，PORT 作为别名兼容旧配置
 const PUBLIC_PORT = parseInt(process.env.PUBLIC_PORT) || parseInt(process.env.PORT) || 3000;
@@ -42,6 +67,28 @@ const server = http.createServer((req, res) => {
 
     if (pathname.startsWith('/api/dify/')) {
         handleDifyProxy(req, res, pathname, parsedUrl);
+        return;
+    }
+
+    if (pathname === '/api/feedbacks' && req.method === 'POST') {
+        handleFeedbackSave(req, res);
+        return;
+    }
+
+    if (pathname === '/api/feedbacks' && req.method === 'GET') {
+        handleFeedbackList(req, res, parsedUrl);
+        return;
+    }
+
+    if (pathname.match(/^\/api\/feedbacks\/conversation\/[^/]+$/) && req.method === 'GET') {
+        const convId = pathname.split('/').pop();
+        handleFeedbackByConversation(req, res, convId);
+        return;
+    }
+
+    if (pathname.match(/^\/api\/admin\/conversation-messages\/[^/]+$/) && req.method === 'GET') {
+        const convId = pathname.split('/').pop();
+        handleAdminConversationMessages(req, res, convId, parsedUrl);
         return;
     }
 
@@ -117,7 +164,7 @@ function serveStaticFile(req, res, pathname) {
             return;
         }
         
-        const cacheControl = ext === '.html' ? 'no-cache' : 'public, max-age=31536000';
+        const cacheControl = ext === '.html' ? 'no-cache' : (ext === '.js' || ext === '.css') ? 'no-cache' : 'public, max-age=31536000';
         res.writeHead(200, {
             'Content-Type': contentType,
             'Cache-Control': cacheControl
@@ -479,6 +526,183 @@ function handleHealthCheck(req, res) {
     });
     
     res.end(JSON.stringify(healthStatus, null, 2));
+}
+
+// ── Feedback API ──────────────────────────────────────────────
+
+function setCorsHeaders(res) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Content-Type', 'application/json');
+}
+
+function checkAdminToken(req) {
+    const token = process.env.FEEDBACK_ADMIN_TOKEN;
+    if (!token) return true; // 未配置则不鉴权
+    const auth = req.headers['authorization'] || '';
+    return auth === `Bearer ${token}`;
+}
+
+async function handleFeedbackSave(req, res) {
+    setCorsHeaders(res);
+    if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+
+    const body = [];
+    req.on('data', chunk => body.push(chunk));
+    req.on('end', async () => {
+        try {
+            const data = JSON.parse(Buffer.concat(body).toString('utf8'));
+            const { conversation_id, message_id, user_id, rating, content } = data;
+            const pool = getPgPool();
+            await pool.query(
+                `INSERT INTO ${FEEDBACKS_TABLE} (conversation_id, message_id, user_id, rating, content)
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [conversation_id || null, message_id || null, user_id || null, rating || null, content || null]
+            );
+            res.writeHead(200);
+            res.end(JSON.stringify({ success: true }));
+        } catch (err) {
+            console.error('[Feedback] Save error:', err.message);
+            res.writeHead(500);
+            res.end(JSON.stringify({ success: false, message: err.message }));
+        }
+    });
+}
+
+async function handleFeedbackList(req, res, parsedUrl) {
+    setCorsHeaders(res);
+    if (!checkAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+        return;
+    }
+    try {
+        const page = parseInt(parsedUrl.query.page) || 1;
+        const limit = parseInt(parsedUrl.query.limit) || 20;
+        const offset = (page - 1) * limit;
+        const pool = getPgPool();
+
+        const { rows } = await pool.query(`
+            SELECT
+                conversation_id,
+                COUNT(*) AS feedback_count,
+                MAX(created_at) AS last_feedback_at,
+                (array_agg(user_id ORDER BY created_at DESC))[1] AS user_id
+            FROM ${FEEDBACKS_TABLE}
+            GROUP BY conversation_id
+            ORDER BY last_feedback_at DESC
+            LIMIT $1 OFFSET $2
+        `, [limit, offset]);
+
+        const { rows: countRows } = await pool.query(
+            `SELECT COUNT(DISTINCT conversation_id) AS total FROM ${FEEDBACKS_TABLE}`
+        );
+
+        res.writeHead(200);
+        res.end(JSON.stringify({
+            success: true,
+            data: rows,
+            total: parseInt(countRows[0].total),
+            page,
+            limit,
+        }));
+    } catch (err) {
+        console.error('[Feedback] List error:', err.message);
+        res.writeHead(500);
+        res.end(JSON.stringify({ success: false, message: err.message }));
+    }
+}
+
+async function handleFeedbackByConversation(req, res, conversationId) {
+    setCorsHeaders(res);
+    if (!checkAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+        return;
+    }
+    try {
+        const pool = getPgPool();
+        const { rows } = await pool.query(
+            `SELECT * FROM ${FEEDBACKS_TABLE} WHERE conversation_id = $1 ORDER BY created_at ASC`,
+            [conversationId]
+        );
+        res.writeHead(200);
+        res.end(JSON.stringify({ success: true, data: rows }));
+    } catch (err) {
+        console.error('[Feedback] ByConv error:', err.message);
+        res.writeHead(500);
+        res.end(JSON.stringify({ success: false, message: err.message }));
+    }
+}
+
+// 管理员查询某会话的完整 Dify 消息（前端传入 user_id，直接代理请求 Dify）
+async function handleAdminConversationMessages(req, res, conversationId, parsedUrl) {
+    setCorsHeaders(res);
+    if (!checkAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+        return;
+    }
+    try {
+        const userId = parsedUrl.query.user_id;
+        if (!userId) {
+            res.writeHead(400);
+            res.end(JSON.stringify({ success: false, message: '缺少 user_id 参数' }));
+            return;
+        }
+
+        const difyUrl = `${DIFY_API_BASE}/v1/messages?conversation_id=${conversationId}&user=${encodeURIComponent(userId)}&limit=100`;
+        const targetUrl = new URL(difyUrl);
+        const isHttps = targetUrl.protocol === 'https:';
+        const httpModule = isHttps ? https : http;
+
+        const options = {
+            hostname: targetUrl.hostname,
+            port: targetUrl.port || (isHttps ? 443 : 80),
+            path: targetUrl.pathname + targetUrl.search,
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${MVS_DIFY_API_KEY}`,
+                'Content-Type': 'application/json',
+            },
+        };
+
+        const proxyReq = httpModule.request(options, (proxyRes) => {
+            let body = '';
+            proxyRes.on('data', chunk => body += chunk);
+            proxyRes.on('end', () => {
+                try {
+                    const data = JSON.parse(body);
+                    res.writeHead(200);
+                    res.end(JSON.stringify({ success: true, data: data.data || [] }));
+                } catch {
+                    console.error('[Admin] Dify response parse failed, status:', proxyRes.statusCode, 'body:', body.slice(0, 200));
+                    res.writeHead(502);
+                    res.end(JSON.stringify({ success: false, message: 'Dify 响应解析失败' }));
+                }
+            });
+        });
+
+        proxyReq.on('error', (err) => {
+            res.writeHead(502);
+            res.end(JSON.stringify({ success: false, message: err.message }));
+        });
+
+        proxyReq.setTimeout(15000, () => {
+            proxyReq.destroy();
+            if (!res.headersSent) {
+                res.writeHead(504);
+                res.end(JSON.stringify({ success: false, message: '请求超时' }));
+            }
+        });
+
+        proxyReq.end();
+    } catch (err) {
+        console.error('[Admin] ConvMessages error:', err.message);
+        res.writeHead(500);
+        res.end(JSON.stringify({ success: false, message: err.message }));
+    }
 }
 
 server.listen(PORT, '0.0.0.0', () => {

@@ -30,6 +30,11 @@ const routes = [
     name: 'monitor',
     component: () => import('@/pages/MonitorPage.vue'),
   },
+  {
+    path: '/feedback-admin',
+    name: 'feedbackAdmin',
+    component: () => import('@/pages/FeedbackAdminPage.vue'),
+  },
 ]
 
 const router = createRouter({

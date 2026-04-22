@@ -136,6 +136,115 @@ export async function stopChatMessage(taskId: string, userId: string = DEFAULT_U
   if (!res.ok) throw new Error(`Stop chat failed: ${res.status}`)
 }
 
+export async function submitMessageFeedback(
+  messageId: string,
+  rating: 'like' | 'dislike' | null,
+  content: string,
+  userId: string = DEFAULT_USER_ID,
+): Promise<void> {
+  const res = await fetch(`${DIFY_BASE}/messages/${messageId}/feedbacks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rating, user: userId, content }),
+  })
+  if (!res.ok) throw new Error(`Submit feedback failed: ${res.status}`)
+}
+
+export interface FeedbackPayload {
+  type: 'feedback'
+  rating: 'like' | 'dislike' | null
+  content: string
+  messageId?: string
+  conversationId?: string
+  userId: string
+  timestamp: string
+}
+
+export async function sendFeedbackAsChat(
+  payload: FeedbackPayload,
+  userId: string = DEFAULT_USER_ID,
+): Promise<void> {
+  const body = {
+    inputs: {},
+    query: JSON.stringify(payload),
+    response_mode: 'blocking',
+    user: userId,
+  }
+  const res = await fetch(`${DIFY_BASE}/chat-messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error(`Send feedback failed: ${res.status}`)
+}
+
+// ── Feedback Admin API ────────────────────────────────────────
+
+export async function saveFeedbackToDB(payload: FeedbackPayload): Promise<void> {
+  const res = await fetch('/api/feedbacks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      conversation_id: payload.conversationId,
+      message_id: payload.messageId,
+      user_id: payload.userId,
+      rating: payload.rating,
+      content: payload.content,
+    }),
+  })
+  if (!res.ok) throw new Error(`Save feedback failed: ${res.status}`)
+}
+
+export interface FeedbackGroup {
+  conversation_id: string
+  feedback_count: string
+  last_feedback_at: string
+  user_id: string
+}
+
+export async function fetchFeedbackList(page = 1, limit = 20, token: string): Promise<{ data: FeedbackGroup[]; total: number }> {
+  const res = await fetch(`/api/feedbacks?page=${page}&limit=${limit}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Fetch feedbacks failed: ${res.status}`)
+  return res.json()
+}
+
+export interface FeedbackRecord {
+  id: number
+  conversation_id: string
+  message_id: string | null
+  user_id: string
+  rating: 'like' | 'dislike' | null
+  content: string | null
+  created_at: string
+}
+
+export async function fetchFeedbacksByConversation(conversationId: string, token: string): Promise<FeedbackRecord[]> {
+  const res = await fetch(`/api/feedbacks/conversation/${conversationId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Fetch conversation feedbacks failed: ${res.status}`)
+  const data = await res.json()
+  return data.data
+}
+
+export interface DifyMessage {
+  id: string
+  query: string
+  answer: string
+  created_at: number
+}
+
+export async function fetchAdminConversationMessages(conversationId: string, userId: string, token: string): Promise<DifyMessage[]> {
+  const res = await fetch(`/api/admin/conversation-messages/${conversationId}?user_id=${encodeURIComponent(userId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Fetch admin messages failed: ${res.status}`)
+  const data = await res.json()
+  return data.data || []
+}
+
 export async function uploadFile(file: File, userId: string = DEFAULT_USER_ID): Promise<string> {
   const formData = new FormData()
   formData.append('file', file)
