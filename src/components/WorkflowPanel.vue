@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="workflow-panel">
     <button class="workflow-header" @click="expanded = !expanded">
       <span class="header-node-icon">
@@ -91,14 +91,14 @@ const props = defineProps<{
   done?: boolean
 }>()
 
-const expanded = ref(true)
-
 const allDone = computed(() =>
   props.nodes.length > 0 && props.nodes.every(n => n.status === 'succeeded')
 )
 
-watch(() => props.running, (val, old) => {
-  if (old === true && val === false) {
+const expanded = ref(!allDone.value)
+
+watch(allDone, (done) => {
+  if (done) {
     setTimeout(() => { expanded.value = false }, 300)
   }
 })

@@ -200,14 +200,40 @@ export interface FeedbackGroup {
   feedback_count: string
   last_feedback_at: string
   user_id: string
+  like_count: string
+  dislike_count: string
 }
 
-export async function fetchFeedbackList(page = 1, limit = 20, token: string): Promise<{ data: FeedbackGroup[]; total: number }> {
-  const res = await fetch(`/api/feedbacks?page=${page}&limit=${limit}`, {
+export async function fetchFeedbackList(page = 1, limit = 20, token: string, rating?: 'like' | 'dislike'): Promise<{ data: FeedbackGroup[]; total: number }> {
+  const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+  if (rating) params.set('rating', rating)
+  const res = await fetch(`/api/feedbacks?${params}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`Fetch feedbacks failed: ${res.status}`)
   return res.json()
+}
+
+export interface FeedbackStats {
+  totalFeedbacks: number
+  totalConversations: number
+  likeCount: number
+  dislikeCount: number
+  nullRatingCount: number
+  withContentCount: number
+  recentWeekCount: number
+  todayCount: number
+  totalUsers: number
+  dailyTrend: { date: string; count: string }[]
+}
+
+export async function fetchFeedbackStats(token: string): Promise<FeedbackStats> {
+  const res = await fetch('/api/feedbacks/stats', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Fetch feedback stats failed: ${res.status}`)
+  const json = await res.json()
+  return json.data
 }
 
 export interface FeedbackRecord {

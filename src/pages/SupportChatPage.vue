@@ -67,9 +67,13 @@
             </div>
           </div>
           <div class="chat-header-right">
-            <button 
-              class="export-btn" 
-              @click="exportConversation" 
+            <router-link to="/" class="header-btn header-btn--home">
+              <i class="fa fa-home" />
+              <span>返回首页</span>
+            </router-link>
+            <button
+              class="header-btn header-btn--export"
+              @click="exportConversation"
               :disabled="chatStore.messages.length === 0"
               title="导出对话报告"
             >
@@ -77,7 +81,7 @@
               <span>导出报告</span>
             </button>
             <button
-              class="feedback-btn"
+              class="header-btn header-btn--feedback"
               @click="openFeedback(undefined)"
               :disabled="chatStore.messages.length === 0"
               title="提交反馈"
@@ -85,10 +89,6 @@
               <i class="fa fa-flag" />
               <span>反馈</span>
             </button>
-            <router-link to="/" class="back-home-btn">
-              <i class="fa fa-home" />
-              <span>返回首页</span>
-            </router-link>
           </div>
         </header>
 
@@ -353,12 +353,12 @@
 
         <template v-else>
           <div class="feedback-dialog-body">
-            <p class="feedback-label">这条回答对您有帮助吗？</p>
+            <p class="feedback-label">这条回答对您有帮助吗？<span class="feedback-required">*</span></p>
             <div class="feedback-rating-row">
               <button
                 class="feedback-rating-btn"
                 :class="{ active: feedbackRating === 'like' }"
-                @click="feedbackRating = feedbackRating === 'like' ? null : 'like'"
+                @click="feedbackRating = 'like'"
               >
                 <i class="fa fa-thumbs-up" />
                 有帮助
@@ -366,12 +366,13 @@
               <button
                 class="feedback-rating-btn dislike"
                 :class="{ active: feedbackRating === 'dislike' }"
-                @click="feedbackRating = feedbackRating === 'dislike' ? null : 'dislike'"
+                @click="feedbackRating = 'dislike'"
               >
                 <i class="fa fa-thumbs-down" />
                 没帮助
               </button>
             </div>
+            <p v-if="feedbackRatingTouched && !feedbackRating" class="feedback-rating-hint">请选择评分后再提交</p>
 
             <p class="feedback-label" style="margin-top:16px">补充说明（可选）</p>
             <textarea
@@ -393,7 +394,7 @@
             <button class="feedback-cancel-btn" @click="closeFeedback">取消</button>
             <button
               class="feedback-submit-btn"
-              :disabled="feedbackSubmitting || (!feedbackRating && !feedbackContent.trim())"
+              :disabled="feedbackSubmitting || !feedbackRating"
               @click="submitFeedback"
             >
               <i v-if="feedbackSubmitting" class="fa fa-spinner fa-spin" />
@@ -808,6 +809,7 @@ const feedbackModal = ref(false)
 const feedbackMessageId = ref<string | undefined>(undefined)
 const feedbackConversationId = ref<string | undefined>(undefined)
 const feedbackRating = ref<'like' | 'dislike' | null>(null)
+const feedbackRatingTouched = ref(false)
 const feedbackContent = ref('')
 const feedbackSubmitting = ref(false)
 const feedbackDone = ref(false)
@@ -816,6 +818,7 @@ function openFeedback(messageId?: string, rating?: 'like' | 'dislike') {
   feedbackMessageId.value = messageId
   feedbackConversationId.value = chatStore.currentConversationId || streamConversationId.value || undefined
   feedbackRating.value = rating ?? null
+  feedbackRatingTouched.value = false
   feedbackContent.value = ''
   feedbackDone.value = false
   feedbackModal.value = true
@@ -826,6 +829,8 @@ function closeFeedback() {
 }
 
 async function submitFeedback() {
+  feedbackRatingTouched.value = true
+  if (!feedbackRating.value) return
   if (feedbackSubmitting.value) return
   feedbackSubmitting.value = true
   try {
@@ -1615,61 +1620,84 @@ onUnmounted(() => {
 .status-thinking { color: #165DFF; }
 .status-error { color: #F53F3F; }
 
-.export-btn {
-  display: flex;
+.header-btn {
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 7px 14px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  color: white;
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-  flex-shrink: 0;
-  text-decoration: none;
-  font-family: inherit;
-  box-shadow: 0 2px 8px rgba(22,93,255,0.25);
-}
-
-.export-btn:hover {
-  filter: brightness(1.08);
-  box-shadow: 0 4px 14px rgba(22,93,255,0.35);
-  transform: translateY(-1px);
-}
-
-.export-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-  filter: none;
-}
-
-.export-btn:disabled:hover {
-  filter: none;
-  transform: none;
-}
-
-.back-home-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
+  height: 36px;
+  padding: 0 16px;
   border-radius: 10px;
   font-size: 13px;
   font-weight: 500;
-  color: #4E5969;
-  text-decoration: none;
-  transition: all 0.15s;
   white-space: nowrap;
+  flex-shrink: 0;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  border: none;
+  line-height: 36px;
+  box-sizing: border-box;
+}
+
+.header-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.header-btn i {
+  display: inline-block;
+  font-size: 14px;
+  line-height: 36px;
+  vertical-align: middle;
   flex-shrink: 0;
 }
 
-.back-home-btn:hover { background: #F2F3F5; color: #165DFF; }
+.header-btn span {
+  display: inline-block;
+  line-height: 36px;
+  vertical-align: middle;
+}
+
+.header-btn--home {
+  background: #F2F3F5;
+  color: #4E5969;
+  border: 1px solid transparent;
+}
+
+.header-btn--home:hover {
+  background: #E8F3FF;
+  color: #165DFF;
+  border-color: rgba(22, 93, 255, 0.15);
+}
+
+.header-btn--export {
+  background: rgba(22, 93, 255, 0.08);
+  color: #165DFF;
+  border: 1px solid rgba(22, 93, 255, 0.2);
+}
+
+.header-btn--export:hover:not(:disabled) {
+  background: rgba(22, 93, 255, 0.14);
+  border-color: rgba(22, 93, 255, 0.35);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(22, 93, 255, 0.15);
+}
+
+.header-btn--feedback {
+  background: rgba(255, 125, 0, 0.08);
+  color: #FF7D00;
+  border: 1px solid rgba(255, 125, 0, 0.2);
+}
+
+.header-btn--feedback:hover:not(:disabled) {
+  background: rgba(255, 125, 0, 0.14);
+  border-color: rgba(255, 125, 0, 0.35);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 125, 0, 0.15);
+}
 
 /* ─── Messages ───────────────────────────────────────────────── */
 .messages-area {
@@ -2350,7 +2378,7 @@ onUnmounted(() => {
   .sidebar.open { left: 0; }
   .sidebar-overlay { display: block; }
   .sidebar-toggle { display: flex; }
-  .back-home-btn span, .export-btn span { display: none; }
+  .header-btn span { display: none; }
   .agent-name { font-size: 13px; }
 
   .messages-area { padding: 16px 12px; }
@@ -2359,40 +2387,6 @@ onUnmounted(() => {
   .input-area { padding: 10px 12px 12px; }
   .welcome-suggestions { flex-direction: column; align-items: stretch; }
   .suggestion-chip { justify-content: center; }
-}
-
-/* ─── Feedback button (header) ───────────────────────────────── */
-.feedback-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  color: white;
-  background: linear-gradient(135deg, #FF7D00, #FF9A3C);
-  border: none;
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-  flex-shrink: 0;
-  font-family: inherit;
-  box-shadow: 0 2px 8px rgba(255,125,0,0.28);
-}
-
-.feedback-btn:hover:not(:disabled) {
-  filter: brightness(1.08);
-  box-shadow: 0 4px 14px rgba(255,125,0,0.38);
-  transform: translateY(-1px);
-}
-
-.feedback-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-  filter: none;
 }
 
 /* ─── Message quick-action bar ───────────────────────────────── */
@@ -2561,6 +2555,17 @@ onUnmounted(() => {
   margin: 0 0 10px;
 }
 
+.feedback-required {
+  color: #F53F3F;
+  margin-left: 3px;
+}
+
+.feedback-rating-hint {
+  font-size: 12px;
+  color: #F53F3F;
+  margin: 6px 0 0;
+}
+
 .feedback-rating-row {
   display: flex;
   gap: 10px;
@@ -2715,6 +2720,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
-  .feedback-btn span { display: none; }
+  .header-btn span { display: none; }
 }
 </style>

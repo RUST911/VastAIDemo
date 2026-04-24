@@ -75,6 +75,11 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    if (pathname === '/api/feedbacks/stats' && req.method === 'GET') {
+        handleFeedbackStats(req, res);
+        return;
+    }
+
     if (pathname === '/api/feedbacks' && req.method === 'GET') {
         handleFeedbackList(req, res, parsedUrl);
         return;
@@ -570,6 +575,80 @@ async function handleFeedbackSave(req, res) {
     });
 }
 
+async function handleFeedbackStats(req, res) {
+    setCorsHeaders(res);
+    if (!checkAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ success: false, message: 'Unauthorized' }));
+        return;
+    }
+    try {
+        const pool = getPgPool();
+
+        const { rows: totalRows } = await pool.query(
+            `SELECT COUNT(*) AS total FROM ${FEEDBACKS_TABLE}`
+        );
+        const totalFeedbacks = parseInt(totalRows[0].total);
+
+        const { rows: ratingRows } = await pool.query(
+            `SELECT rating, COUNT(*) AS count FROM ${FEEDBACKS_TABLE} GROUP BY rating`
+        );
+        const likeCount = parseInt(ratingRows.find(r => r.rating === 'like')?.count || 0);
+        const dislikeCount = parseInt(ratingRows.find(r => r.rating === 'dislike')?.count || 0);
+        const nullRatingCount = parseInt(ratingRows.find(r => r.rating === null)?.count || 0);
+
+        const { rows: convRows } = await pool.query(
+            `SELECT COUNT(DISTINCT conversation_id) AS total FROM ${FEEDBACKS_TABLE}`
+        );
+        const totalConversations = parseInt(convRows[0].total);
+
+        const { rows: contentRows } = await pool.query(
+            `SELECT COUNT(*) AS count FROM ${FEEDBACKS_TABLE} WHERE content IS NOT NULL AND content != ''`
+        );
+        const withContentCount = parseInt(contentRows[0].count);
+
+        const { rows: recentRows } = await pool.query(
+            `SELECT COUNT(*) AS count FROM ${FEEDBACKS_TABLE} WHERE created_at >= NOW() - INTERVAL '7 days'`
+        );
+        const recentWeekCount = parseInt(recentRows[0].count);
+
+        const { rows: todayRows } = await pool.query(
+            `SELECT COUNT(*) AS count FROM ${FEEDBACKS_TABLE} WHERE created_at >= CURRENT_DATE`
+        );
+        const todayCount = parseInt(todayRows[0].count);
+
+        const { rows: userRows } = await pool.query(
+            `SELECT COUNT(DISTINCT user_id) AS total FROM ${FEEDBACKS_TABLE}`
+        );
+        const totalUsers = parseInt(userRows[0].total);
+
+        const { rows: dailyRows } = await pool.query(
+            `SELECT DATE(created_at) AS date, COUNT(*) AS count FROM ${FEEDBACKS_TABLE} WHERE created_at >= NOW() - INTERVAL '30 days' GROUP BY DATE(created_at) ORDER BY date ASC`
+        );
+
+        res.writeHead(200);
+        res.end(JSON.stringify({
+            success: true,
+            data: {
+                totalFeedbacks,
+                totalConversations,
+                likeCount,
+                dislikeCount,
+                nullRatingCount,
+                withContentCount,
+                recentWeekCount,
+                todayCount,
+                totalUsers,
+                dailyTrend: dailyRows,
+            },
+        }));
+    } catch (err) {
+        console.error('[Feedback] Stats error:', err.message);
+        res.writeHead(500);
+        res.end(JSON.stringify({ success: false, message: err.message }));
+    }
+}
+
 async function handleFeedbackList(req, res, parsedUrl) {
     setCorsHeaders(res);
     if (!checkAdminToken(req)) {
@@ -581,22 +660,31 @@ async function handleFeedbackList(req, res, parsedUrl) {
         const page = parseInt(parsedUrl.query.page) || 1;
         const limit = parseInt(parsedUrl.query.limit) || 20;
         const offset = (page - 1) * limit;
+        const ratingFilter = parsedUrl.query.rating || ''; // 'like' | 'dislike' | ''
         const pool = getPgPool();
+
+        // Build WHERE clause for rating filter
+        const whereClause = ratingFilter
+            ? `WHERE conversation_id IN (SELECT DISTINCT conversation_id FROM ${FEEDBACKS_TABLE} WHERE rating = '${ratingFilter === 'like' ? 'like' : 'dislike'}')`
+            : '';
 
         const { rows } = await pool.query(`
             SELECT
                 conversation_id,
                 COUNT(*) AS feedback_count,
                 MAX(created_at) AS last_feedback_at,
-                (array_agg(user_id ORDER BY created_at DESC))[1] AS user_id
+                (array_agg(user_id ORDER BY created_at DESC))[1] AS user_id,
+                COUNT(*) FILTER (WHERE rating = 'like') AS like_count,
+                COUNT(*) FILTER (WHERE rating = 'dislike') AS dislike_count
             FROM ${FEEDBACKS_TABLE}
+            ${whereClause}
             GROUP BY conversation_id
             ORDER BY last_feedback_at DESC
             LIMIT $1 OFFSET $2
         `, [limit, offset]);
 
         const { rows: countRows } = await pool.query(
-            `SELECT COUNT(DISTINCT conversation_id) AS total FROM ${FEEDBACKS_TABLE}`
+            `SELECT COUNT(DISTINCT conversation_id) AS total FROM ${FEEDBACKS_TABLE} ${whereClause}`
         );
 
         res.writeHead(200);
@@ -624,7 +712,7 @@ async function handleFeedbackByConversation(req, res, conversationId) {
     try {
         const pool = getPgPool();
         const { rows } = await pool.query(
-            `SELECT * FROM ${FEEDBACKS_TABLE} WHERE conversation_id = $1 ORDER BY created_at ASC`,
+            `SELECT * FROM ${FEEDBACKS_TABLE} WHERE conversation_id = $1 ORDER BY created_at DESC`,
             [conversationId]
         );
         res.writeHead(200);
