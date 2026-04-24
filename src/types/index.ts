@@ -37,6 +37,7 @@ export interface WorkflowNode {
   nodeType: string
   title: string
   status: 'running' | 'succeeded' | 'failed'
+  error?: string
   elapsedTime?: number
   totalTokens?: number
 }

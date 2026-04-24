@@ -25,6 +25,13 @@
           <path d="M6 10.5l3 3 5-5" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
         </svg>
       </span>
+      <span v-else-if="hasFailed" class="header-failed-badge">
+        <svg viewBox="0 0 20 20" width="18" height="18">
+          <circle cx="10" cy="10" r="10" fill="#ef4444"/>
+          <path d="M7 7l6 6M13 7l-6 6" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <span class="header-failed-text">执行失败</span>
+      </span>
       <span v-else-if="running" class="header-running-badge">
         Running
         <svg class="gear-spin" viewBox="0 0 16 16" width="13" height="13" fill="none">
@@ -39,7 +46,15 @@
 
     <transition name="wf-expand">
       <div v-if="expanded" class="workflow-nodes">
-        <div v-for="node in nodes" :key="node.nodeId" class="workflow-node">
+        <div v-if="error" class="workflow-error-banner">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" style="flex-shrink:0;color:#ef4444">
+            <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <path d="M8 4.5v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <circle cx="8" cy="11.5" r="0.8" fill="currentColor"/>
+          </svg>
+          <span class="workflow-error-message">{{ error }}</span>
+        </div>
+        <div v-for="node in nodes" :key="node.nodeId" class="workflow-node" :class="{ 'node-failed': node.status === 'failed' }">
           <svg viewBox="0 0 16 16" width="10" height="10" fill="none" style="flex-shrink:0;color:#d1d5db">
             <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
@@ -48,6 +63,7 @@
           </div>
           <div class="node-info">
             <span class="node-title">{{ node.title }}</span>
+            <span v-if="node.status === 'failed' && node.error" class="node-error-text">{{ node.error }}</span>
           </div>
           <div class="node-right">
             <span v-if="node.totalTokens || node.elapsedTime" class="node-stats">
@@ -89,10 +105,15 @@ const props = defineProps<{
   nodes: WorkflowNode[]
   running: boolean
   done?: boolean
+  error?: string | null
 }>()
 
 const allDone = computed(() =>
   props.nodes.length > 0 && props.nodes.every(n => n.status === 'succeeded')
+)
+
+const hasFailed = computed(() =>
+  props.nodes.some(n => n.status === 'failed') || !!props.error
 )
 
 const expanded = ref(!allDone.value)
@@ -100,6 +121,12 @@ const expanded = ref(!allDone.value)
 watch(allDone, (done) => {
   if (done) {
     setTimeout(() => { expanded.value = false }, 300)
+  }
+})
+
+watch(hasFailed, (failed) => {
+  if (failed) {
+    expanded.value = true
   }
 })
 
@@ -161,12 +188,19 @@ function fmtTime(s: number) {
 .header-node-icon { display:flex; align-items:center; flex-shrink:0; }
 .workflow-label { flex:1; font-size:13px; font-weight:600; color:#374151; }
 .header-check-circle { display:flex; align-items:center; flex-shrink:0; }
+.header-failed-badge { display:flex; align-items:center; gap:5px; flex-shrink:0; }
+.header-failed-text { font-size:12px; font-weight:600; color:#ef4444; }
 .header-running-badge, .node-running-badge { display:flex; align-items:center; gap:4px; font-size:12px; font-weight:500; color:#3b82f6; white-space:nowrap; }
 .chevron-icon { flex-shrink:0; transition:transform 0.2s; }
 .workflow-nodes { display:flex; flex-direction:column; }
 .workflow-node { display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid #f3f4f6; transition:background 0.15s; }
 .workflow-node:last-child { border-bottom:none; }
 .workflow-node:hover { background:#f9fafb; }
+.workflow-node.node-failed { background:#fef2f2; }
+.workflow-node.node-failed:hover { background:#fee2e2; }
+.node-error-text { display:block; font-size:11px; color:#ef4444; margin-top:2px; line-height:1.4; word-break:break-word; }
+.workflow-error-banner { display:flex; align-items:flex-start; gap:8px; padding:10px 14px; background:#fef2f2; border-bottom:1px solid #fecaca; }
+.workflow-error-message { font-size:12px; color:#dc2626; line-height:1.5; word-break:break-word; }
 .node-icon-wrap { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
 .node-info { flex:1; min-width:0; }
 .node-title { font-size:13px; font-weight:500; color:#374151; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }

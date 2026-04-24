@@ -6,6 +6,7 @@ interface UseStreamChatOptions {
   onChunk?: (delta: string, fullText: string) => void
   onFinish?: (fullText: string, conversationId: string, messageId?: string) => void
   onError?: (error: Error) => void
+  onWorkflowFailed?: (error: string, nodes: WorkflowNode[]) => void
   userId?: string | (() => string)
 }
 
@@ -25,6 +26,7 @@ export function useStreamChat(options: UseStreamChatOptions = {}) {
   // Workflow tracking
   const workflowNodes = ref<WorkflowNode[]>([])
   const workflowRunning = ref(false)
+  const workflowError = ref<string | null>(null)
 
   let renderTimer: ReturnType<typeof requestAnimationFrame> | null = null
   let pendingDelta = ''
@@ -82,11 +84,12 @@ export function useStreamChat(options: UseStreamChatOptions = {}) {
       d,
     )
     const status = rawStatus === 'failed' || rawStatus === 'error' ? 'failed' : 'succeeded'
+    const nodeError = d.error || undefined
     const exists = workflowNodes.value.some(n => n.nodeId === d.node_id)
     if (exists) {
       workflowNodes.value = workflowNodes.value.map(n =>
         n.nodeId === d.node_id
-          ? { ...n, status, elapsedTime: d.elapsed_time, totalTokens: meta.total_tokens }
+          ? { ...n, status, error: nodeError, elapsedTime: d.elapsed_time, totalTokens: meta.total_tokens }
           : n
       )
     } else {
@@ -95,6 +98,7 @@ export function useStreamChat(options: UseStreamChatOptions = {}) {
         nodeType: d.node_type,
         title: d.title,
         status,
+        error: nodeError,
         elapsedTime: d.elapsed_time,
         totalTokens: meta.total_tokens,
       }]
@@ -151,6 +155,12 @@ export function useStreamChat(options: UseStreamChatOptions = {}) {
         d,
       )
       workflowRunning.value = false
+      if (d.status === 'failed') {
+        const wfError = d.error || '工作流执行失败'
+        console.error('%c[workflow_failed]%c %s', 'color:#ef4444;font-weight:bold', 'color:inherit', wfError)
+        workflowError.value = wfError
+        options.onWorkflowFailed?.(wfError, workflowNodes.value)
+      }
     }
   }
 
@@ -165,6 +175,7 @@ export function useStreamChat(options: UseStreamChatOptions = {}) {
     lastMessageId.value = undefined
     workflowNodes.value = []
     workflowRunning.value = false
+    workflowError.value = null
     pendingDelta = ''
     lastRenderTime = 0
     currentTaskId.value = null
@@ -308,6 +319,7 @@ export function useStreamChat(options: UseStreamChatOptions = {}) {
     pendingDelta = ''
     workflowNodes.value = []
     workflowRunning.value = false
+    workflowError.value = null
     currentTaskId.value = null
     nodeStartTimes.clear()
   }
@@ -324,6 +336,7 @@ export function useStreamChat(options: UseStreamChatOptions = {}) {
     error,
     workflowNodes,
     workflowRunning,
+    workflowError,
     sendMessage,
     cancel,
     stopStreaming,

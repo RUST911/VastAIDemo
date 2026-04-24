@@ -168,6 +168,7 @@
                       :nodes="msg.workflowNodes"
                       :running="false"
                       :done="true"
+                      :error="msg.workflowNodes.some(n => n.status === 'failed') ? getWorkflowError(msg.workflowNodes) : null"
                       class="mb-2"
                     />
                     <div class="assistant-bubble">
@@ -216,6 +217,7 @@
                     v-if="workflowNodes.length"
                     :nodes="workflowNodes"
                     :running="workflowRunning"
+                    :error="workflowError"
                     class="mb-2"
                   />
                   <div class="assistant-bubble">
@@ -425,7 +427,7 @@ import {
   DEFAULT_USER_ID,
 } from '@/api'
 import { generateId, formatTime, exportCurrentConversation } from '@/utils'
-import type { ChatMessage, Conversation, DifyFile, MessageSegment, FeedbackData } from '@/types'
+import type { ChatMessage, Conversation, DifyFile, MessageSegment, FeedbackData, WorkflowNode } from '@/types'
 
 const route = useRoute()
 const chatStore = useChatStore()
@@ -446,6 +448,7 @@ const {
   conversationId: streamConversationId,
   workflowNodes,
   workflowRunning,
+  workflowError,
   sendMessage: streamSend,
   stopStreaming,
   reset: streamReset,
@@ -479,6 +482,20 @@ const {
     })
     setStatus('连接错误', 'error')
   },
+  onWorkflowFailed(error, nodes) {
+    const failedNodes = nodes.filter(n => n.status === 'failed')
+    const nodeErrors = failedNodes.map(n => n.error ? `• ${n.title}：${n.error}` : `• ${n.title}`).join('\n')
+    const errorContent = nodeErrors ? `${error}\n\n失败节点：\n${nodeErrors}` : error
+    chatStore.addMessage({
+      id: generateId(),
+      role: 'assistant',
+      content: `⚠️ 工作流执行失败：${errorContent}`,
+      timestamp: Date.now(),
+      workflowNodes: nodes.length ? [...nodes] : undefined,
+    })
+    setStatus('执行失败', 'error')
+    loadConversations()
+  },
 })
 
 const inputText = ref('')
@@ -504,8 +521,12 @@ const MAX_FILE_COUNT = 10
 const MAX_DOC_SIZE = 15 * 1024 * 1024   // 15 MB
 const MAX_IMG_SIZE = 10 * 1024 * 1024   // 10 MB
 
+const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff', 'tif', 'avif'])
+
 function isImageFile(file: File) {
-  return file.type.startsWith('image/')
+  if (file.type.startsWith('image/')) return true
+  const ext = (file.name.split('.').pop() || '').toLowerCase()
+  return IMAGE_EXTENSIONS.has(ext)
 }
 
 function getFileExt(file: File) {
@@ -950,6 +971,11 @@ function useSuggestion(text: string) {
   nextTick(() => inputRef.value?.focus())
 }
 
+function getWorkflowError(nodes: WorkflowNode[]): string {
+  const failed = nodes.filter(n => n.status === 'failed' && n.error)
+  return failed.map(n => `${n.title}：${n.error}`).join('；') || '工作流执行失败'
+}
+
 // ── Attachment URL parsing ────────────────────────────────────
 // Matches patterns like: 附件: [1] https://... [2] https://...
 // or standalone URLs in the message
@@ -1028,7 +1054,6 @@ async function handleSend() {
       setStatus('上传文件中...', 'loading')
       for (const file of currentFiles) {
         if (file.type === 'text/uri-list') {
-          // URL-based attachment
           difyFiles.push({
             type: 'document',
             transfer_method: 'remote_url',
@@ -1036,7 +1061,10 @@ async function handleSend() {
           } as any)
         } else {
           const fileId = await uploadFile(file, userId.value)
-          if (fileId) difyFiles.push({ type: 'document', transfer_method: 'local_file', upload_file_id: fileId })
+          if (fileId) {
+            const fileType: 'image' | 'document' = isImageFile(file) ? 'image' : 'document'
+            difyFiles.push({ type: fileType, transfer_method: 'local_file', upload_file_id: fileId })
+          }
         }
       }
       setStatus('正在思考...', 'thinking')
