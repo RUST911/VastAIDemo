@@ -70,6 +70,11 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    if (pathname.startsWith('/files/')) {
+        handleDifyProxy(req, res, pathname, parsedUrl);
+        return;
+    }
+
     if (pathname === '/api/feedbacks' && req.method === 'POST') {
         handleFeedbackSave(req, res);
         return;

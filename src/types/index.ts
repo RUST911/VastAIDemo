@@ -56,13 +56,24 @@ export interface FeedbackData {
   timestamp: string
 }
 
+export interface MessageFile {
+  id: string
+  filename: string
+  type: 'image' | 'document' | string
+  url: string
+  mime_type: string
+  size?: number
+  belongs_to: 'user' | 'assistant'
+}
+
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
   timestamp: number
   loading?: boolean
-  files?: { name: string }[]
+  files?: { name: string; previewUrl?: string }[]
+  messageFiles?: MessageFile[]
   thinkContent?: string
   thinkBlocks?: string[]
   beforeThink?: string
@@ -70,7 +81,7 @@ export interface ChatMessage {
   workflowNodes?: WorkflowNode[]
   ticketData?: Record<string, any> | null
   feedbackData?: FeedbackData | null
-  messageId?: string  // Dify message_id, used for feedback
+  messageId?: string
 }
 
 export interface ChartConfig {

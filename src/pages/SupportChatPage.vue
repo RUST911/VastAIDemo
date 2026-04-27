@@ -144,13 +144,25 @@
                 <div v-else class="user-msg-wrap">
                   <div class="user-bubble" :class="{ 'ticket-bubble': msg.ticketData }">
                     <MvsTicketCard v-if="msg.ticketData" :ticket="msg.ticketData" />
-                    <div v-else class="markdown-content" v-html="renderContent(msg.content)" />
-                    <div v-if="msg.files && msg.files.length" class="msg-files">
-                      <div v-for="(f, idx) in msg.files" :key="idx" class="msg-file-tag">
-                        <i class="fa fa-file-o" />
-                        <span>{{ f.name }}</span>
-                      </div>
+                    <div v-if="(msg.messageFiles && msg.messageFiles.length) || (msg.files && msg.files.length)" class="msg-files" :class="{ 'mb-2': msg.content }">
+                      <template v-if="msg.messageFiles && msg.messageFiles.length">
+                        <div v-for="(f, idx) in msg.messageFiles" :key="'mf-'+idx" class="msg-image-wrap" @click="openImagePreview(f.url)">
+                          <img :src="f.url" :alt="f.filename" class="msg-image" />
+                        </div>
+                      </template>
+                      <template v-if="msg.files && msg.files.length">
+                        <template v-for="(f, idx) in msg.files" :key="'f-'+idx">
+                          <div v-if="f.previewUrl && isPreviewImageFile(f.name)" class="msg-image-wrap" @click="openImagePreview(f.previewUrl)">
+                            <img :src="f.previewUrl" :alt="f.name" class="msg-image" />
+                          </div>
+                          <div v-else class="msg-file-tag">
+                            <i class="fa fa-file-o" />
+                            <span>{{ f.name }}</span>
+                          </div>
+                        </template>
+                      </template>
                     </div>
+                    <div v-if="msg.content && !msg.ticketData" class="markdown-content" v-html="renderContent(msg.content)" />
                   </div>
                   <div class="user-avatar">
                     <img src="@/assets/images/用户.png" alt="用户" />
@@ -200,6 +212,11 @@
                           :streaming="false"
                           :class="msg.content ? 'mb-2' : ''"
                         />
+                        <div v-if="msg.messageFiles && msg.messageFiles.length" class="msg-files mb-2">
+                          <div v-for="(f, idx) in msg.messageFiles" :key="'mf-'+idx" class="msg-image-wrap" @click="openImagePreview(f.url)">
+                            <img :src="f.url" :alt="f.filename" class="msg-image" />
+                          </div>
+                        </div>
                         <div v-if="msg.content" class="markdown-content" v-html="renderContent(msg.content)" />
                       </template>
                     </div>
@@ -285,6 +302,9 @@
             <div v-if="uploadedFiles.length" class="file-previews">
               <div v-for="(file, index) in uploadedFiles" :key="index" class="file-preview-card">
                 <button class="file-card-remove" @click.stop="removeFile(index)" title="删除">×</button>
+                <div v-if="isImageFile(file)" class="file-card-thumb" @click="openImagePreview(getFilePreviewUrl(file))">
+                  <img :src="getFilePreviewUrl(file)" />
+                </div>
                 <div class="file-card-body" @click="isImageFile(file) ? openImagePreview(getFilePreviewUrl(file)) : null" :class="{ 'is-image': isImageFile(file) }">
                   <span class="file-card-name">{{ file.name }}</span>
                   <span class="file-card-meta">
@@ -427,7 +447,7 @@ import {
   DEFAULT_USER_ID,
 } from '@/api'
 import { generateId, formatTime, exportCurrentConversation } from '@/utils'
-import type { ChatMessage, Conversation, DifyFile, MessageSegment, FeedbackData, WorkflowNode } from '@/types'
+import type { ChatMessage, Conversation, DifyFile, MessageSegment, FeedbackData, WorkflowNode, MessageFile } from '@/types'
 
 const route = useRoute()
 const chatStore = useChatStore()
@@ -526,6 +546,11 @@ const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'b
 function isImageFile(file: File) {
   if (file.type.startsWith('image/')) return true
   const ext = (file.name.split('.').pop() || '').toLowerCase()
+  return IMAGE_EXTENSIONS.has(ext)
+}
+
+function isPreviewImageFile(name: string) {
+  const ext = (name.split('.').pop() || '').toLowerCase()
   return IMAGE_EXTENSIONS.has(ext)
 }
 
@@ -1041,7 +1066,13 @@ async function handleSend() {
     role: 'user',
     content: cleanWhitespace(query),
     timestamp: Date.now(),
-    files: currentFiles.map((f) => ({ name: f.name })),
+    files: currentFiles.map((f) => {
+      const entry: { name: string; previewUrl?: string } = { name: f.name }
+      if (isImageFile(f)) {
+        entry.previewUrl = getFilePreviewUrl(f)
+      }
+      return entry
+    }),
   })
 
   userScrolledUp.value = false
@@ -1148,6 +1179,17 @@ async function handleSwitchConversation(convId: string, mvsTicketData?: Record<s
         if (isFeedback) {
           try { feedbackData = JSON.parse(msg.query.trim()) } catch { /* ignore */ }
         }
+        const userImageFiles: MessageFile[] = (msg.message_files || [])
+          .filter((f: any) => f.type === 'image' && f.belongs_to === 'user')
+          .map((f: any) => ({
+            id: f.id,
+            filename: f.filename,
+            type: f.type,
+            url: f.url,
+            mime_type: f.mime_type,
+            size: f.size,
+            belongs_to: f.belongs_to,
+          }))
         chatStore.addMessage({
           id: generateId(),
           role: 'user',
@@ -1155,12 +1197,34 @@ async function handleSwitchConversation(convId: string, mvsTicketData?: Record<s
           timestamp: Date.now(),
           ticketData: isMvsQuery && mvsTicketData ? mvsTicketData : undefined,
           feedbackData: feedbackData,
+          messageFiles: userImageFiles.length > 0 ? userImageFiles : undefined,
         })
         userCount++
       }
       if (msg.answer && msg.answer.trim()) {
         const parsed = parseAnswer(msg.answer)
-        chatStore.addMessage({ id: generateId(), role: 'assistant', content: parsed.content, timestamp: Date.now(), thinkContent: parsed.thinkContent, thinkBlocks: parsed.thinkBlocks, segments: parsed.segments, beforeThink: parsed.beforeThink })
+        const assistantImageFiles: MessageFile[] = (msg.message_files || [])
+          .filter((f: any) => f.type === 'image' && f.belongs_to === 'assistant')
+          .map((f: any) => ({
+            id: f.id,
+            filename: f.filename,
+            type: f.type,
+            url: f.url,
+            mime_type: f.mime_type,
+            size: f.size,
+            belongs_to: f.belongs_to,
+          }))
+        chatStore.addMessage({
+          id: generateId(),
+          role: 'assistant',
+          content: parsed.content,
+          timestamp: Date.now(),
+          thinkContent: parsed.thinkContent,
+          thinkBlocks: parsed.thinkBlocks,
+          segments: parsed.segments,
+          beforeThink: parsed.beforeThink,
+          messageFiles: assistantImageFiles.length > 0 ? assistantImageFiles : undefined,
+        })
         assistantCount++
       }
     })
@@ -1198,7 +1262,28 @@ async function checkForNewMessages(convId: string, lastCount: number): Promise<b
       stopMessagePolling()
       newMessages.forEach((msg: any) => {
         const parsed = parseAnswer(msg.answer)
-        chatStore.addMessage({ id: generateId(), role: 'assistant', content: parsed.content, timestamp: Date.now(), thinkContent: parsed.thinkContent, thinkBlocks: parsed.thinkBlocks, segments: parsed.segments, beforeThink: parsed.beforeThink })
+        const assistantImageFiles: MessageFile[] = (msg.message_files || [])
+          .filter((f: any) => f.type === 'image' && f.belongs_to === 'assistant')
+          .map((f: any) => ({
+            id: f.id,
+            filename: f.filename,
+            type: f.type,
+            url: f.url,
+            mime_type: f.mime_type,
+            size: f.size,
+            belongs_to: f.belongs_to,
+          }))
+        chatStore.addMessage({
+          id: generateId(),
+          role: 'assistant',
+          content: parsed.content,
+          timestamp: Date.now(),
+          thinkContent: parsed.thinkContent,
+          thinkBlocks: parsed.thinkBlocks,
+          segments: parsed.segments,
+          beforeThink: parsed.beforeThink,
+          messageFiles: assistantImageFiles.length > 0 ? assistantImageFiles : undefined,
+        })
       })
       scrollToBottom()
       setStatus('在线', 'online')
@@ -1913,6 +1998,26 @@ onUnmounted(() => {
   font-size: 12px;
 }
 
+.msg-image-wrap {
+  cursor: pointer;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.msg-image-wrap:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+}
+
+.msg-image {
+  max-width: 220px;
+  max-height: 180px;
+  object-fit: contain;
+  border-radius: 8px;
+  display: block;
+}
+
 /* Typing dots */
 .typing-dots {
   display: inline-flex;
@@ -2033,41 +2138,59 @@ onUnmounted(() => {
 .file-preview-card {
   position: relative;
   display: inline-flex;
-  align-items: stretch;
-  width: 190px;
+  align-items: center;
+  width: 200px;
   background: white;
   border: 1.5px solid #E5E6EB;
   border-radius: 12px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-  overflow: visible;
+  overflow: hidden;
+  height: 54px;
+}
+
+.file-card-thumb {
+  width: 42px;
+  height: 42px;
+  margin-left: 8px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #F2F3F5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.file-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .file-card-remove {
   position: absolute;
-  top: -9px;
-  right: -9px;
-  width: 20px;
-  height: 20px;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  background: white;
-  border: 1.5px solid #D0D3D9;
+  background: rgba(0,0,0,0.3);
+  border: none;
   cursor: pointer;
-  color: #4E5969;
-  font-size: 14px;
+  color: white;
+  font-size: 12px;
   line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.15s;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
   z-index: 3;
   padding: 0;
 }
 
 .file-card-remove:hover {
   background: #F53F3F;
-  border-color: #F53F3F;
-  color: white;
 }
 
 .file-card-body {
@@ -2076,9 +2199,9 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 5px;
-  padding: 10px 12px;
-  border-radius: 10px;
+  gap: 2px;
+  padding: 8px 10px;
+  height: 100%;
 }
 
 .file-card-body.is-image {
