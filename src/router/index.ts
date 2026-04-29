@@ -36,15 +36,10 @@ const routes = [
     component: () => import('@/pages/FeedbackAdminPage.vue'),
   },
   {
-    path: '/sql-rewrite',
-    name: 'sqlRewrite',
-    component: () => import('@/pages/SqlRewriteSubmitPage.vue'),
-  },
-  {
-    path: '/sql-rewrite/result',
-    name: 'sqlRewriteResult',
-    component: () => import('@/pages/SqlRewriteResultPage.vue'),
-  },
+    path: '/migrate/rewrite-result',
+    name: 'migrateRewriteResult',
+    component: () => import('@/pages/MigrateRewriteResultPage.vue'),
+  }
 ]
 
 const router = createRouter({
