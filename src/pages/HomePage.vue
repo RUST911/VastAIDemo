@@ -127,20 +127,6 @@ const modules: Array<{
     route: '/monitor',
     linkText: '查看功能演示',
   },
-  {
-    id: 'module-e',
-    icon: 'fa fa-code',
-    colorClass: 'icon-green',
-    title: 'SQL智能改写',
-    description: 'AI驱动的SQL语法转换与性能优化工具，支持多数据库平台兼容改写，自动识别性能瓶颈。',
-    features: [
-      { title: '多数据库语法转换', description: '自动转换Oracle/MySQL/SQL Server等语法为国产数据库适配语句' },
-      { title: '智能性能优化', description: '识别慢SQL、全表扫描等问题，给出索引建议和执行计划优化方案' },
-      { title: '批量改写支持', description: '支持Excel/SQL文件批量上传，一次性完成上百条SQL改写' },
-    ],
-    route: '/sql-rewrite',
-    linkText: '开始智能改写',
-  },
 ]
 </script>
 

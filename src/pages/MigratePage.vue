@@ -142,156 +142,239 @@
     </div>
 
     <div class="card p-6 mb-6">
-      <h2 class="section-title">
-        <i class="fa fa-code"></i>智能SQL改写
+      <h2 class="section-title mb-8">
+        <i class="fa fa-cogs"></i>智能SQL改写
       </h2>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <div>
-          <h3 class="font-semibold mb-3 text-gray-800">源SQL (Oracle)</h3>
-          <div class="bg-gray-100 rounded-lg p-4 h-64 overflow-auto">
-            <pre class="font-mono text-xs text-gray-800">{{ sourceSql }}</pre>
+
+      <div class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="form-item">
+            <label class="form-label">源数据库类型 <span class="text-red-500">*</span></label>
+            <select v-model="rewriteForm.sourceDbType" class="form-input">
+              <option value="">请选择数据库类型</option>
+              <option v-for="db in rewriteSourceDbTypes" :key="db" :value="db">{{ db }}</option>
+            </select>
+          </div>
+
+          <div class="form-item">
+            <label class="form-label">源数据库版本</label>
+            <input v-model="rewriteForm.sourceDbVersion" type="text" class="form-input" placeholder="如：11g、12c、14 等" />
+          </div>
+
+          <div class="form-item">
+            <label class="form-label">目标数据库类型 <span class="text-red-500">*</span></label>
+            <select v-model="rewriteForm.targetDbType" class="form-input">
+              <option value="">请选择数据库类型</option>
+              <option v-for="db in rewriteTargetDbTypes" :key="db" :value="db">{{ db }}</option>
+            </select>
+          </div>
+
+          <div class="form-item">
+            <label class="form-label">目标数据库版本</label>
+            <input v-model="rewriteForm.targetDbVersion" type="text" class="form-input" placeholder="如：Vastbase G100 2.2 等" />
           </div>
         </div>
-        <div>
-          <h3 class="font-semibold mb-3 text-gray-800">目标SQL (vastbase) - 智能生成</h3>
-          <div class="bg-primary/5 rounded-lg p-4 h-64 overflow-auto border-l-4 border-primary">
-            <pre class="font-mono text-xs text-gray-800">{{ targetSql }}</pre>
-          </div>
-        </div>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <h3 class="font-semibold mb-3 text-gray-800">SQL改写规则</h3>
-          <div class="space-y-2 text-sm">
-            <div v-for="rule in sqlRewriteRules" :key="rule.label" class="bg-gray-50 p-2 rounded">
-              <span class="font-medium">{{ rule.label }}</span>：{{ rule.desc }}
+
+        <div class="form-item">
+          <label class="form-label">上传 SQL 文件 <span class="text-red-500">*</span></label>
+          <div
+            class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center cursor-pointer hover:border-primary transition-colors"
+            :class="{ 'border-primary bg-primary/5': rewriteFile }"
+            @click="triggerRewriteFileInput"
+          >
+            <input
+              ref="rewriteFileInputRef"
+              type="file"
+              accept=".xlsx,.xls,.sql"
+              class="hidden"
+              @change="handleRewriteFileChange"
+            />
+
+            <div v-if="!rewriteFile" class="space-y-3">
+              <i class="fa fa-cloud-upload text-4xl text-gray-400"></i>
+              <div>
+                <p class="text-gray-600">点击或拖拽文件到此处上传</p>
+                <p class="text-sm text-gray-400 mt-1">支持 .xlsx、.xls、.sql 格式，文件大小不超过 20MB</p>
+              </div>
+            </div>
+
+            <div v-else class="space-y-3">
+              <i class="fa fa-file-excel-o text-4xl text-green-500"></i>
+              <div>
+                <p class="font-medium text-gray-800">{{ rewriteFile.name }}</p>
+                <p class="text-sm text-gray-500 mt-1">{{ formatRewriteFileSize(rewriteFile.size) }}</p>
+                <button type="button" class="text-primary text-sm mt-2 hover:underline" @click.stop="removeRewriteFile">
+                  重新上传
+                </button>
+              </div>
             </div>
           </div>
         </div>
-        <div>
-          <h3 class="font-semibold mb-3 text-gray-800">改写统计</h3>
-          <div class="h-40"><canvas ref="sqlRewriteChartRef"></canvas></div>
+
+        <div class="form-item">
+          <label class="form-label">改写选项</label>
+          <div class="space-y-3">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" v-model="rewriteForm.options.optimizePerformance" class="w-4 h-4 text-primary" />
+              <span>性能优化（添加索引建议、优化执行计划）</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" v-model="rewriteForm.options.fixSyntaxError" class="w-4 h-4 text-primary" />
+              <span>自动修复语法错误</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" v-model="rewriteForm.options.addComments" class="w-4 h-4 text-primary" />
+              <span>生成改写说明注释</span>
+            </label>
+          </div>
         </div>
       </div>
-      <div class="mt-6 flex justify-between items-center">
-        <div>
-          <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors mr-2">
-            <i class="fa fa-upload mr-2"></i>导入SQL文件
-          </button>
-          <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
-            <i class="fa fa-download mr-2"></i>导出改写后SQL
-          </button>
-        </div>
-        <button class="btn-primary px-6 py-2">
-          <i class="fa fa-magic mr-2"></i>批量智能改写
+
+      <div class="mt-10 flex justify-center">
+        <button class="btn-primary min-w-[200px]" @click="submitRewriteForm" :disabled="rewriteLoading || rewritePolling">
+          <i v-if="rewriteLoading || rewritePolling" class="fa fa-spinner fa-spin mr-2"></i>
+          <span>{{ rewriteLoading ? '提交中...' : (rewritePolling ? '改写中...' : '开始智能改写') }}</span>
         </button>
       </div>
     </div>
 
-    <div class="card p-6 mb-6">
-      <h2 class="section-title">
-        <i class="fa fa-tasks"></i>迁移执行管理
-      </h2>
-      <div class="mb-6">
-        <div class="flex justify-between items-center mb-2">
-          <h3 class="font-semibold text-gray-800">迁移进度 (85%)</h3>
-          <span class="text-sm text-gray-500">预计剩余时间：15分钟</span>
+    <div v-if="showRewriteResult" class="card p-6 mb-6">
+      <div v-if="rewritePolling" class="min-h-[40vh] flex flex-col items-center justify-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-4 border-primary/20 border-t-primary mb-6"></div>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">正在进行SQL智能改写中</h3>
+        <p class="text-gray-500">AI正在分析SQL语法、优化执行计划，请稍候...</p>
+        <p class="text-sm text-gray-400 mt-2">执行可能需要较长时间，请勿关闭页面</p>
+      </div>
+
+      <div v-else-if="rewriteLoading" class="min-h-[40vh] flex flex-col items-center justify-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-4 border-primary/20 border-t-primary mb-6"></div>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">正在提交任务...</h3>
+        <p class="text-gray-500">正在上传文件并启动改写任务，请稍候...</p>
+      </div>
+
+      <div v-else-if="rewriteErrorMessage" class="min-h-[40vh] flex flex-col items-center justify-center">
+        <div class="rounded-full h-16 w-16 bg-red-100 flex items-center justify-center mb-6">
+          <i class="fa fa-exclamation-triangle text-3xl text-red-500"></i>
         </div>
-        <div class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
-          <div class="bg-primary h-2.5 rounded-full" style="width: 85%"></div>
+        <h3 class="text-xl font-bold text-gray-800 mb-2">执行出错</h3>
+        <p class="text-gray-500 text-center max-w-md">{{ rewriteErrorMessage }}</p>
+      </div>
+
+      <div v-else>
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="section-title">
+            <i class="fa fa-bar-chart"></i>智能改写概览
+          </h2>
+          <button class="btn-primary" @click="exportRewriteSqlFile">
+            <i class="fa fa-download mr-2"></i>
+            导出.SQL文件
+          </button>
         </div>
-        <div class="space-y-2">
-          <div v-for="(step, idx) in migrationSteps" :key="idx" class="relative pl-8 pb-8 last:pb-0">
-            <div
-              class="absolute left-0 top-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-sm font-bold"
-              :class="stepClass(step.status)"
-            >
-              <template v-if="step.status === 'completed'">✓</template>
-              <template v-else>{{ idx + 1 }}</template>
-            </div>
-            <div v-if="idx < migrationSteps.length - 1" class="absolute left-3 top-6 bottom-0 w-0.5 bg-gray-200"></div>
-            <h4 class="font-medium">{{ step.title }}</h4>
-            <p class="text-sm text-gray-600 mt-1">{{ step.desc }}</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div
+            class="rounded-xl p-6 text-center transition-all duration-300 cursor-pointer"
+            :class="rewriteFilterStatus === 'all' ? 'bg-blue-100 border-2 border-blue-400 shadow-md' : 'bg-blue-50 border border-blue-100 hover:shadow-lg hover:border-blue-300'"
+            @click="setRewriteFilter('all')"
+          >
+            <div class="text-4xl font-bold text-blue-600 mb-2">{{ rewriteResult.total }}</div>
+            <div class="text-sm text-gray-600">总SQL数</div>
+          </div>
+          <div
+            class="rounded-xl p-6 text-center transition-all duration-300 cursor-pointer"
+            :class="rewriteFilterStatus === 'success' ? 'bg-green-100 border-2 border-green-400 shadow-md' : 'bg-green-50 border border-green-100 hover:shadow-lg hover:border-green-300'"
+            @click="setRewriteFilter('success')"
+          >
+            <div class="text-4xl font-bold text-green-600 mb-2">{{ rewriteResult.success }}</div>
+            <div class="text-sm text-gray-600">改写成功</div>
+          </div>
+          <div
+            class="rounded-xl p-6 text-center transition-all duration-300 cursor-pointer"
+            :class="rewriteFilterStatus === 'failed' ? 'bg-red-100 border-2 border-red-400 shadow-md' : 'bg-red-50 border border-red-100 hover:shadow-lg hover:border-red-300'"
+            @click="setRewriteFilter('failed')"
+          >
+            <div class="text-4xl font-bold text-red-600 mb-2">{{ rewriteResult.failed }}</div>
+            <div class="text-sm text-gray-600">改写失败</div>
           </div>
         </div>
-      </div>
-      <div class="flex gap-3 mb-6">
-        <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
-          <i class="fa fa-pause mr-2"></i>暂停迁移
-        </button>
-        <button class="bg-warning text-white px-4 py-2 rounded-lg hover:bg-warning/90 transition-colors">
-          <i class="fa fa-step-forward mr-2"></i>跳过当前步
-        </button>
-        <button class="bg-danger text-white px-4 py-2 rounded-lg hover:bg-danger/90 transition-colors">
-          <i class="fa fa-stop mr-2"></i>终止迁移
-        </button>
-        <button class="bg-success text-white px-4 py-2 rounded-lg hover:bg-success/90 transition-colors ml-auto">
-          <i class="fa fa-backup mr-2"></i>一键备份
-        </button>
-        <button class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
-          <i class="fa fa-undo mr-2"></i>回滚数据
-        </button>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          <h3 class="font-semibold mb-3 flex items-center text-gray-800">
-            <i class="fa fa-stethoscope text-primary mr-2"></i>智能诊断
-          </h3>
-          <div class="space-y-3 text-sm">
-            <div class="bg-white p-3 rounded border border-gray-200">
-              <div class="font-medium text-danger">当前诊断到的异常 (2个)</div>
-              <div class="mt-2 space-y-2">
-                <div v-for="(ex, idx) in diagnosisExceptions" :key="idx">
-                  <span class="font-medium">{{ ex.title }}</span>
-                  <div class="mt-1 pl-4">
-                    <p>{{ ex.cause }}</p>
-                    <p class="text-success mt-1">{{ ex.fix }}</p>
-                    <button class="text-primary text-xs hover:underline mt-1">
-                      <i class="fa mr-1" :class="ex.icon"></i>{{ ex.action }}
-                    </button>
-                  </div>
-                </div>
+
+        <div class="space-y-6">
+          <div
+            v-for="item in rewriteFilteredItems"
+            :key="item.id"
+            class="p-4 rounded-lg border"
+            :class="{
+              'bg-green-50/30 border-green-200': item.status === 'success',
+              'bg-red-50/30 border-red-200': item.status === 'failed'
+            }"
+          >
+            <div class="flex justify-between items-start mb-4">
+              <div class="flex items-center gap-2">
+                <span
+                  class="px-3 py-1 rounded-full text-xs font-medium"
+                  :class="{
+                    'bg-green-100 text-green-700': item.status === 'success',
+                    'bg-red-100 text-red-700': item.status === 'failed'
+                  }"
+                >
+                  <i :class="item.status === 'success' ? 'fa fa-check' : 'fa fa-times'" class="mr-1"></i>
+                  {{ item.status === 'success' ? '改写成功' : '改写失败' }}
+                </span>
+                <span class="text-sm text-gray-500">#{{ item.id }} 对象：{{ item.originalSql }}</span>
               </div>
             </div>
-            <div class="bg-primary/5 p-3 rounded border border-primary/20">
-              <p class="text-sm">✅ 迁移进程已暂停，保存当前状态（已迁移 1024/1256 张表）</p>
-              <p class="text-xs text-gray-600 mt-1">修复异常后可直接从emp表继续迁移，无需从头开始</p>
-            </div>
-          </div>
-        </div>
-        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          <h3 class="font-semibold mb-3 flex items-center text-gray-800">
-            <i class="fa fa-exclamation-triangle text-warning mr-2"></i>异常预警
-          </h3>
-          <div class="space-y-3 text-sm">
-            <div class="bg-white p-3 rounded border border-gray-200">
-              <div class="font-medium text-warning">数据合规性检测结果</div>
-              <div class="mt-2 space-y-2">
-                <div v-for="alert in sensitiveAlerts" :key="alert.field" class="flex items-start">
-                  <i class="fa fa-user-secret text-danger mt-1 mr-2"></i>
-                  <div>
-                    <p>{{ alert.message }}</p>
-                    <p class="text-xs text-gray-600 mt-1">涉及记录数：{{ alert.count }} 条</p>
-                    <button class="text-primary text-xs hover:underline mt-1">
-                      <i class="fa fa-shield mr-1"></i>一键脱敏处理
-                    </button>
-                  </div>
-                </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">原始SQL</label>
+                <textarea
+                  v-model="item.srcDdl"
+                  class="w-full h-36 p-2 rounded-lg border border-gray-200 font-mono text-sm bg-white resize-none focus:outline-none focus:border-primary"
+                ></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                  {{ item.status === 'success' ? '问题SQL' : '改写后SQL' }}
+                </label>
+                <textarea
+                  v-if="item.status === 'success'"
+                  v-model="item.errorSql"
+                  class="w-full h-36 p-2 rounded-lg border border-orange-300 font-mono text-sm bg-orange-50 resize-none focus:outline-none focus:border-primary"
+                ></textarea>
+                <textarea
+                  v-else
+                  v-model="item.errorSql"
+                  class="w-full h-36 p-2 rounded-lg border border-red-300 font-mono text-sm bg-white resize-none focus:outline-none focus:border-primary"
+                ></textarea>
+              </div>
+              <div v-if="item.status === 'success'">
+                <label class="block text-sm font-medium text-gray-700 mb-2">改写后SQL</label>
+                <textarea
+                  v-model="item.rewrittenSql"
+                  class="w-full h-36 p-2 rounded-lg border border-green-300 font-mono text-sm bg-green-50 resize-none focus:outline-none focus:border-primary"
+                ></textarea>
+              </div>
+              <div v-if="item.status === 'success'">
+                <label class="block text-sm font-medium text-gray-700 mb-2">改写详情</label>
+                <div
+                  class="w-full h-36 p-2 rounded-lg border border-blue-200 bg-blue-50 text-sm overflow-y-auto"
+                  v-html="item.description"
+                ></div>
+              </div>
+              <div v-if="item.status === 'failed'">
+                <label class="block text-sm font-medium text-gray-700 mb-2">失败原因</label>
+                <div
+                  class="w-full h-36 p-2 rounded-lg border border-red-300 bg-red-50 text-sm overflow-y-auto"
+                  v-html="item.failedReason"
+                ></div>
               </div>
             </div>
-            <div class="bg-warning/5 p-3 rounded border border-warning/20">
-              <p class="text-sm">⚠️ 敏感数据未脱敏，建议先处理再继续迁移</p>
-            </div>
           </div>
-        </div>
-      </div>
-      <div>
-        <h3 class="font-semibold mb-3 text-gray-800">迁移执行日志</h3>
-        <div class="bg-gray-900 text-gray-300 p-4 rounded-md font-mono text-xs h-64 overflow-auto">
-          <pre>{{ migrationLog }}</pre>
         </div>
       </div>
     </div>
+
+
 
     <div class="card p-6 mb-6">
       <h2 class="section-title">
@@ -306,8 +389,10 @@
               <span>{{ opt.label }}</span>
             </label>
           </div>
-          <button class="btn-primary w-full mt-4 py-2">
-            <i class="fa fa-magic mr-2"></i>AI生成测试用例
+          <button class="btn-primary w-full mt-4 py-2" @click="callTestCaseWorkflow" :disabled="testWorkflowLoading || !showRewriteResult">
+            <i v-if="testWorkflowLoading" class="fa fa-spinner fa-spin mr-2"></i>
+            <i v-else class="fa fa-magic mr-2"></i>
+            {{ testWorkflowLoading ? '生成中...' : 'AI生成测试用例' }}
           </button>
         </div>
         <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -330,8 +415,13 @@
                 </label>
               </div>
             </div>
-            <button class="bg-success text-white w-full mt-4 py-2 rounded-lg hover:bg-success/90 transition-colors">
-              <i class="fa fa-play mr-2"></i>执行回归验证
+            <button
+              class="bg-success text-white w-full mt-4 py-2 rounded-lg hover:bg-success/90 transition-colors flex items-center justify-center gap-2"
+              @click="startRegressionTest"
+            >
+              <i v-if="regressionLoading" class="fa fa-spinner fa-spin"></i>
+              <i v-else class="fa fa-play mr-2"></i>
+              {{ regressionLoading ? '执行中...' : '执行回归验证' }}
             </button>
           </div>
         </div>
@@ -339,27 +429,26 @@
           <h3 class="font-semibold mb-3 text-gray-800">验证进度</h3>
           <div class="flex items-center justify-center h-32">
             <div class="text-center">
-              <div class="text-3xl font-bold text-primary">78%</div>
-              <div class="text-sm text-gray-600 mt-1">测试用例执行中</div>
-              <div class="text-xs text-gray-500 mt-2">预计剩余 3 分钟</div>
+              <div class="text-3xl font-bold text-primary">{{ regressionProgress.percent }}%</div>
+              <div class="text-sm text-gray-600 mt-1">{{ regressionProgress.statusText }}</div>
             </div>
           </div>
           <div class="mt-4 space-y-2 text-sm">
             <div class="flex justify-between">
               <span>已执行用例数</span>
-              <span class="font-medium">1,245 / 1,600</span>
+              <span class="font-medium">{{ regressionProgress.executedCount || 0 }} / {{ regressionProgress.totalCount || 0 }}</span>
             </div>
             <div class="flex justify-between">
               <span>通过用例数</span>
-              <span class="font-medium text-success">1,189</span>
+              <span class="font-medium text-success">{{ regressionProgress.passedCount || 0 }}</span>
             </div>
             <div class="flex justify-between">
               <span>失败用例数</span>
-              <span class="font-medium text-danger">56</span>
+              <span class="font-medium text-danger">{{ regressionProgress.failedCount || 0 }}</span>
             </div>
             <div class="flex justify-between">
               <span>平均执行耗时对比</span>
-              <span class="font-medium">+12%</span>
+              <span class="font-medium">{{ regressionProgress.avgTimeDiff || 0 }}</span>
             </div>
           </div>
         </div>
@@ -373,13 +462,25 @@
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">ID</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用例名称</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用例类型</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">关联表</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">关联对象</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">执行状态</th>
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200 text-sm">
-              <tr v-for="tc in testCases" :key="tc.id">
+              <tr v-if="testWorkflowLoading">
+                <td colspan="6" class="px-4 py-12 text-center text-gray-500">
+                  <i class="fa fa-spinner fa-spin text-xl mb-2"></i>
+                  <p>生成用例中...</p>
+                </td>
+              </tr>
+              <tr v-else-if="generatedTestCases.length === 0">
+                <td colspan="6" class="px-4 py-12 text-center text-gray-500">
+                  <i class="fa fa-magic text-2xl mb-2"></i>
+                  <p>点击上方"AI生成测试用例"按钮继续</p>
+                </td>
+              </tr>
+              <tr v-else v-for="tc in generatedTestCases" :key="tc.id">
                 <td class="px-4 py-3 whitespace-nowrap">{{ tc.id }}</td>
                 <td class="px-4 py-3 whitespace-nowrap">{{ tc.name }}</td>
                 <td class="px-4 py-3 whitespace-nowrap">{{ tc.type }}</td>
@@ -394,41 +495,31 @@
                 </td>
                 <td class="px-4 py-3 whitespace-nowrap">
                   <button
-                    class="text-xs hover:underline"
-                    :class="tc.status === 'running' ? 'text-gray-400 cursor-not-allowed' : 'text-primary'"
-                  >{{ tc.status === 'mismatch' ? '查看差异' : '查看详情' }}</button>
+                    class="text-xs text-primary hover:underline cursor-pointer"
+                    @click="showTestCaseDetail(tc)"
+                  >{{ getOperationText(tc) }}</button>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div>
-          <h3 class="font-semibold mb-3 text-gray-800">测试用例执行结果对比 (TC003)</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
-              <div class="font-medium text-sm mb-2">源库 (Oracle) 执行结果</div>
-              <div class="bg-white rounded p-2 text-xs font-mono h-40 overflow-auto">
-                <pre>{{ oracleResult }}</pre>
-              </div>
-            </div>
-            <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
-              <div class="font-medium text-sm mb-2">目标库 (vastbase) 执行结果</div>
-              <div class="bg-white rounded p-2 text-xs font-mono h-40 overflow-auto">
-                <pre>{{ vastbaseResult }}</pre>
-              </div>
+
+      <div v-if="selectedTestCase" class="mb-6">
+        <h3 class="font-semibold mb-4 text-gray-800">测试用例比对 ({{ selectedTestCase.id }})</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+            <div class="font-medium text-sm mb-2">源库测试用例</div>
+            <div class="bg-white rounded p-2 text-xs font-mono h-40 overflow-auto">
+              <pre>{{ selectedTestCase.srcCase }}</pre>
             </div>
           </div>
-          <div class="mt-4 bg-red-50 p-3 rounded-lg border border-red-200 text-sm">
-            <div class="font-medium text-danger mb-1">差异分析</div>
-            <p>vastbase数据库对 NULL 值的 COUNT(*) 统计逻辑与 Oracle 不同，Oracle 返回 0，vastbase返回 NULL</p>
-            <p class="mt-2 text-success">修复建议：修改SQL为 COUNT(1) 或 NVL(COUNT(*), 0) 保证结果一致</p>
+          <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+            <div class="font-medium text-sm mb-2">目标库测试用例</div>
+            <div class="bg-white rounded p-2 text-xs font-mono h-40 overflow-auto">
+              <pre>{{ selectedTestCase.tarCase }}</pre>
+            </div>
           </div>
-        </div>
-        <div>
-          <h3 class="font-semibold mb-3 text-gray-800">回归验证统计</h3>
-          <div class="h-64"><canvas ref="regressionChartRef"></canvas></div>
         </div>
       </div>
     </div>
@@ -438,7 +529,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, nextTick, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, nextTick, onBeforeUnmount } from 'vue'
 import { Chart, registerables } from 'chart.js'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
@@ -485,139 +576,401 @@ const advancedConfig = reactive({
   exceptionStrategy: '暂停迁移，人工介入',
 })
 
-const sqlRewriteRules = [
-  { label: '层级查询', desc: 'CONNECT BY → WITH RECURSIVE 递归CTE' },
-  { label: '分页语法', desc: 'ROWNUM → LIMIT/OFFSET' },
-  { label: '函数转换', desc: 'STRAGG → LISTAGG，SYSDATE → CURRENT_TIMESTAMP' },
-  { label: '数据类型', desc: 'NUMBER → DECIMAL，VARCHAR2 → VARCHAR' },
-  { label: '运算符', desc: '|| → CONCAT，NVL → IFNULL' },
+const DIFY_API_BASE = import.meta.env.VITE_MIGRATE_DIFY_API_BASE || 'http://172.16.105.101:3001'
+const WORKFLOW_API_URL = `${DIFY_API_BASE}/v1/workflows/run`
+const SQLREWRITE_AUTHORIZATION_TOKEN = import.meta.env.VITE_SQLREWRITE_AUTHORIZATION_TOKEN || 'app-oIQTTwWLdyjnwPEdHUEQvBgR'
+const TEST_AUTHORIZATION_TOKEN = import.meta.env.VITE_CREATE_TESTCASE_AUTHORIZATION_TOKEN || 'app-cU3nZGeSRrMYEloJN1BApyyL'
+const REGRESSION_VALIDATE_WORKFLOW_TOKEN = import.meta.env.VITE_REGRESSION_VALIDATE_WORKFLOW_TOKEN || 'app-sP3NOGE2NR3oZdN6HoKdsldP'
+const REGRESSION_VALIDATE_STATUS_TOKEN = import.meta.env.VITE_REGRESSION_VALIDATE_STATUS_TOKEN || 'app-kqX9lK5woZx1TzC7UqkJ5R3N'
+const testWorkflowLoading = ref(false)
+const testWorkflowError = ref('')
+const regressionLoading = ref(false)
+const testCaseWorkflowRunId = ref('')
+
+const rewriteSourceDbTypes = [
+  'Oracle',
+  'MySQL',
+  'PostgreSQL',
+  'SQL Server',
+  'DB2',
+  '达梦',
+  '人大金仓',
+  '南大通用',
 ]
 
-const sourceSql = `-- 员工层级查询
-SELECT 
-    empno, 
-    ename, 
-    mgr,
-    LEVEL,
-    CONNECT_BY_ROOT ename AS top_manager
-FROM emp
-START WITH mgr IS NULL
-CONNECT BY PRIOR empno = mgr
-ORDER SIBLINGS BY ename;
-
--- 分页查询
-SELECT * FROM (
-    SELECT a.*, ROWNUM rn FROM (
-        SELECT empno, ename, sal, deptno
-        FROM emp
-        WHERE deptno = 10
-        ORDER BY sal DESC
-    ) a
-    WHERE ROWNUM <= 20
-) WHERE rn >= 10;
-
--- 自定义聚合函数
-SELECT 
-    deptno,
-    STRAGG(ename) AS emp_list
-FROM emp
-GROUP BY deptno;`
-
-const targetSql = `-- 员工层级查询 (自动转换)
-WITH RECURSIVE emp_hierarchy (empno, ename, mgr, level, top_manager) AS (
-    SELECT 
-        empno, 
-        ename, 
-        mgr,
-        1,
-        ename AS top_manager
-    FROM emp
-    WHERE mgr IS NULL
-    UNION ALL
-    SELECT 
-        e.empno, 
-        e.ename, 
-        e.mgr,
-        eh.level + 1,
-        eh.top_manager
-    FROM emp e
-    JOIN emp_hierarchy eh ON e.mgr = eh.empno
-)
-SELECT empno, ename, mgr, level, top_manager
-FROM emp_hierarchy
-ORDER BY level, ename;
-
--- 分页查询 (自动转换)
-SELECT empno, ename, sal, deptno
-FROM emp
-WHERE deptno = 10
-ORDER BY sal DESC
-LIMIT 10 OFFSET 9;
-
--- 自定义聚合函数 (自动转换)
-SELECT 
-    deptno,
-    LISTAGG(ename, ',') WITHIN GROUP (ORDER BY ename) AS emp_list
-FROM emp
-GROUP BY deptno;`
-
-const migrationSteps = [
-  { title: '源库连接验证', desc: '已成功连接到Oracle 19c数据库，版本验证通过', status: 'completed' },
-  { title: '目标库连接验证', desc: '已成功连接到vastbase数据库，权限验证通过', status: 'completed' },
-  { title: '结构解析与转换', desc: '已解析 256 张表结构，完成 98% 的结构转换', status: 'completed' },
-  { title: '数据迁移 (多线程)', desc: '8个并行线程正在迁移数据，已完成 85%，当前迁移emp表', status: 'active' },
-  { title: '索引与约束创建', desc: '等待数据迁移完成', status: 'pending' },
-  { title: '数据一致性校验', desc: '等待索引创建完成', status: 'pending' },
-  { title: '迁移完成确认', desc: '等待校验完成', status: 'pending' },
+const rewriteTargetDbTypes = [
+  'Vastbase G100',
+  'Vastbase E100',
+  'PostgreSQL',
+  'MySQL',
+  'Oracle',
 ]
 
-function stepClass(status: string) {
-  if (status === 'completed') return 'bg-success'
-  if (status === 'active') return 'bg-primary'
-  return 'bg-gray-300'
+const rewriteFileInputRef = ref<HTMLInputElement | null>(null)
+const rewriteLoading = ref(false)
+const rewritePolling = ref(false)
+const rewriteErrorMessage = ref('')
+const rewritePollingInterval = ref<number | null>(null)
+const rewriteFile = ref<File | null>(null)
+const showRewriteResult = ref(false)
+
+const rewriteForm = ref({
+  sourceDbType: '',
+  sourceDbVersion: '',
+  targetDbType: '',
+  targetDbVersion: '',
+  options: {
+    optimizePerformance: true,
+    fixSyntaxError: true,
+    addComments: true,
+  },
+})
+
+interface RewriteItem {
+  id: number
+  status: 'success' | 'failed'
+  originalSql: string
+  srcDdl: string
+  errorSql: string
+  rewrittenSql?: string
+  description?: string
+  failedReason?: string
 }
 
-const diagnosisExceptions = [
-  {
-    title: '异常1：emp表sal字段数据类型转换失败',
-    cause: '根因分析：Oracle NUMBER(8,2) 转换为vastbase DECIMAL 时精度溢出',
-    fix: '修复方案：调整目标表字段为 DECIMAL(10,2)，重新执行该表迁移',
-    action: '从当前异常处继续迁移',
-    icon: 'fa-play',
-  },
-  {
-    title: '异常2：存储过程 P_GET_EMP_SAL 语法不兼容',
-    cause: '根因分析：PL/SQL 游标语法与vastbase不兼容',
-    fix: '修复方案：自动转换游标语法为vastbase兼容格式，生成改写脚本',
-    action: '自动修复并继续',
-    icon: 'fa-magic',
-  },
-]
+const rewriteResult = ref<{
+  total: number
+  success: number
+  failed: number
+  output: string
+  items: RewriteItem[]
+}>({
+  total: 0,
+  success: 0,
+  failed: 0,
+  output: '',
+  items: [],
+})
 
-const sensitiveAlerts = [
-  { field: 'phone', message: '检测到customer表中包含未脱敏的手机号字段 (phone)', count: '12,589' },
-  { field: 'id_card', message: '检测到order表中包含身份证号字段 (id_card) 明文存储', count: '8,745' },
-]
+const rewriteFilterStatus = ref<'all' | 'success' | 'failed'>('all')
 
-const migrationLog = `2026-03-19 10:00:00 [INFO] 开始迁移任务: Oracle → vastbase
-2026-03-19 10:00:05 [INFO] 源库连接成功: 192.168.1.100:1521/ORCLCDB
-2026-03-19 10:00:08 [INFO] 目标库连接成功: 192.168.1.101:5236/DM8
-2026-03-19 10:00:10 [INFO] 开始解析源库结构，共 256 张表
-2026-03-19 10:05:30 [INFO] 结构解析完成，开始转换表结构
-2026-03-19 10:10:25 [INFO] 表结构转换完成，创建目标库表结构
-2026-03-19 10:15:40 [INFO] 启动8个并行迁移线程
-2026-03-19 10:15:45 [INFO] 线程1开始迁移dept表，共 4 条记录
-2026-03-19 10:15:45 [INFO] 线程2开始迁移emp表，共 14 条记录
-2026-03-19 10:15:46 [INFO] 线程3开始迁移salgrade表，共 5 条记录
-2026-03-19 10:15:47 [SUCCESS] 线程1完成dept表迁移，4条记录
-2026-03-19 10:15:48 [SUCCESS] 线程3完成salgrade表迁移，5条记录
-2026-03-19 10:15:50 [INFO] 线程1开始迁移bonus表，共 0 条记录
-2026-03-19 10:15:52 [ERROR] 线程2迁移emp表失败: 数据类型转换错误
-2026-03-19 10:15:53 [INFO] 迁移进程暂停，保存当前状态
-2026-03-19 10:15:54 [DIAGNOSIS] 根因分析: sal字段 NUMBER(8,2) 精度溢出
-2026-03-19 10:15:55 [SOLUTION] 修复方案: 调整目标字段为 DECIMAL(10,2)
-2026-03-19 10:15:56 [WARNING] 检测到customer表存在未脱敏手机号数据
-2026-03-19 10:15:57 [INFO] 已迁移表数量: 1024/1256 (81.5%)`
+const rewriteFilteredItems = computed(() => {
+  if (rewriteFilterStatus.value === 'all') return rewriteResult.value.items
+  return rewriteResult.value.items.filter(item => item.status === rewriteFilterStatus.value)
+})
+
+const rewriteSuccessRate = computed(() => {
+  if (rewriteResult.value.total === 0) return 0
+  return ((rewriteResult.value.success / rewriteResult.value.total) * 100).toFixed(1)
+})
+
+function setRewriteFilter(status: 'all' | 'success' | 'failed') {
+  rewriteFilterStatus.value = status
+}
+
+function triggerRewriteFileInput() {
+  rewriteFileInputRef.value?.click()
+}
+
+function handleRewriteFileChange(e: Event) {
+  const target = e.target as HTMLInputElement
+  if (target.files?.length) {
+    rewriteFile.value = target.files[0]
+  }
+}
+
+function removeRewriteFile() {
+  rewriteFile.value = null
+  if (rewriteFileInputRef.value) {
+    rewriteFileInputRef.value.value = ''
+  }
+}
+
+function formatRewriteFileSize(size: number): string {
+  if (size < 1024) return size + ' B'
+  if (size < 1024 * 1024) return (size / 1024).toFixed(2) + ' KB'
+  return (size / (1024 * 1024)).toFixed(2) + ' MB'
+}
+
+const submitRewriteForm = async () => {
+  if (!rewriteForm.value.sourceDbType) {
+    alert('请选择源数据库类型')
+    return
+  }
+  if (!rewriteForm.value.targetDbType) {
+    alert('请选择目标数据库类型')
+    return
+  }
+  if (!rewriteFile.value) {
+    alert('请上传SQL文件')
+    return
+  }
+
+  rewriteLoading.value = true
+  rewriteErrorMessage.value = ''
+  showRewriteResult.value = true
+
+  try {
+    const fileInfo = await uploadRewriteFileToDify(rewriteFile.value!)
+    const workflowResponse = await callRewriteWorkflowApi(fileInfo)
+    if (workflowResponse.task_id) {
+      startRewritePolling(workflowResponse.task_id)
+    } else {
+      throw new Error('未能获取有效的 task_id')
+    }
+  } catch (err) {
+    rewriteLoading.value = false
+    rewriteErrorMessage.value = `提交失败: ${err}`
+  }
+}
+
+function startRewritePolling(taskId: string) {
+  rewriteLoading.value = false
+  rewritePolling.value = true
+  pollRewriteWorkflowStatus(taskId)
+  rewritePollingInterval.value = window.setInterval(() => {
+    pollRewriteWorkflowStatus(taskId)
+  }, 5000)
+}
+
+function stopRewritePolling() {
+  rewritePolling.value = false
+  if (rewritePollingInterval.value) {
+    clearInterval(rewritePollingInterval.value)
+    rewritePollingInterval.value = null
+  }
+}
+
+async function pollRewriteWorkflowStatus(taskId: string) {
+  try {
+    const response = await fetch(`${WORKFLOW_API_URL}/${taskId}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${SQLREWRITE_AUTHORIZATION_TOKEN}`,
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`查询失败: ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    if (data.status === 'succeeded' || data.status === 'stopped') {
+      rewriteLoading.value = false
+      stopRewritePolling()
+      parseRewriteResult(data.outputs)
+    } else if (data.status === 'failed') {
+      rewriteLoading.value = false
+      stopRewritePolling()
+      rewriteErrorMessage.value = data.error || '工作流执行失败'
+    }
+  } catch (err) {
+    rewriteErrorMessage.value = `查询失败: ${err}`
+    rewriteLoading.value = false
+    stopRewritePolling()
+  }
+}
+
+function parseRewriteResult(outputs: any) {
+  if (!outputs) {
+    rewriteErrorMessage.value = '工作流返回结果为空'
+    return
+  }
+
+  const rawOutput = typeof outputs.text === 'string' ? outputs.text : JSON.stringify(outputs)
+  let text = outputs.text || outputs
+  if (typeof text === 'string') {
+    text = text.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim()
+    try {
+      text = JSON.parse(text)
+    } catch {
+      rewriteErrorMessage.value = '结果格式解析失败'
+      return
+    }
+  }
+
+  const items = Array.isArray(text) ? text : []
+
+  if (items.length === 0) {
+    rewriteErrorMessage.value = '工作流返回结果为空'
+    return
+  }
+
+  rewriteResult.value = {
+    total: items.length,
+    success: items.filter((i: any) => i.result === 'PASS').length,
+    failed: items.filter((i: any) => i.result === 'FAIL').length,
+    output: rawOutput,
+    items: items.map((item: any, index: number) => {
+      const isSuccess = item.result === 'PASS'
+      let issuesText = ''
+      if (item.issues) {
+        if (Array.isArray(item.issues)) {
+          issuesText = item.issues.map((issue: any) => {
+            if (typeof issue === 'string') return issue
+            return `[${issue.type || 'ERROR'}] ${issue.detail || JSON.stringify(issue)}`
+          }).join('\n\n')
+        } else if (typeof item.issues === 'object') {
+          const issue = item.issues
+          issuesText = `[${issue.type || 'ERROR'}] ${issue.detail || JSON.stringify(issue)}`
+        } else if (typeof item.issues === 'string') {
+          issuesText = item.issues
+        }
+      }
+
+      let rulesText = ''
+      if (item.rules) {
+        let rulesArr: [string, string][] = []
+        if (typeof item.rules === 'string') {
+          try {
+            const obj = JSON.parse(item.rules)
+            rulesArr = Object.entries(obj)
+          } catch (e) {
+          }
+        } else if (typeof item.rules === 'object') {
+          rulesArr = Object.entries(item.rules)
+        }
+        const filtered = rulesArr.filter(([k, v]) => k.toLowerCase() !== v.toLowerCase())
+        rulesText = filtered.map(([k, v]) => `${k} → ${v}`).join('<br>')
+      }
+
+      const desc = isSuccess && rulesText ? rulesText : ''
+
+      return {
+        id: index + 1,
+        status: isSuccess ? 'success' : 'failed',
+        originalSql: item.schema ? `${item.schema}.${item.objname}` : item.objname,
+        srcDdl: item.srcddl || '',
+        errorSql: item.tgtddl || '',
+        rewrittenSql: item.tarddl || '',
+        description: desc,
+        failedReason: issuesText ? `<p>${issuesText.replace(/\n/g, '</p><p>')}</p>` : '',
+      }
+    }),
+  }
+}
+
+function exportRewriteSqlFile() {
+  const successItems = rewriteResult.value.items.filter(item => item.status === 'success' && item.rewrittenSql)
+  if (successItems.length === 0) {
+    alert('没有可导出的改写成功记录')
+    return
+  }
+
+  let content = '-- SQL智能改写结果（仅改写成功）\n'
+  content += `-- 生成时间: ${new Date().toLocaleString()}\n`
+  content += `-- 成功条数: ${successItems.length}\n\n`
+
+  successItems.forEach(item => {
+    content += `-- =============================================\n`
+    content += `-- ${item.originalSql}\n`
+    content += `-- =============================================\n`
+    content += `${item.rewrittenSql}\n\n`
+  })
+
+  const blob = new Blob([content], { type: 'text/plain' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `sql_rewrite_result_${Date.now()}.sql`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+async function uploadRewriteFileToDify(file: File): Promise<{ id: string; name: string; extension: string }> {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await fetch(`${DIFY_API_BASE}/v1/files/upload`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${SQLREWRITE_AUTHORIZATION_TOKEN}`,
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    throw new Error(`文件上传失败: ${response.status}`)
+  }
+
+  const data = await response.json()
+  return {
+    id: data.id,
+    name: data.name,
+    extension: data.extension,
+  }
+}
+
+async function callRewriteWorkflowApi(fileInfo: { id: string; name: string; extension: string }): Promise<{ task_id: string }> {
+  const body = {
+    inputs: {
+      report: {
+        type: "document",
+        transfer_method: "local_file",
+        upload_file_id: fileInfo.id,
+      },
+      srcdbtype: rewriteForm.value.sourceDbType,
+      tardbtype: rewriteForm.value.targetDbType,
+    },
+    response_mode: "streaming",
+    user: "vb",
+  }
+
+  const response = await fetch(WORKFLOW_API_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${SQLREWRITE_AUTHORIZATION_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    throw new Error(`工作流调用失败: ${response.status}`)
+  }
+
+  const reader = response.body?.getReader()
+  if (!reader) {
+    throw new Error('无法获取响应读取器')
+  }
+  const decoder = new TextDecoder()
+  let taskId = ''
+  let buffer = ''
+
+  while (true) {
+    const result = await reader.read()
+    const { done, value } = result
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6).trim()
+        if (data && data !== '[DONE]') {
+          try {
+            const json = JSON.parse(data)
+            if (json.workflow_run_id) {
+              taskId = json.workflow_run_id
+              reader.cancel()
+              return { task_id: taskId }
+            }
+          } catch {
+          }
+        }
+      }
+    }
+  }
+
+  if (!taskId) {
+    throw new Error('未能在流式响应中获取 task_id')
+  }
+
+  return { task_id: taskId }
+}
 
 const testScopeOptions = reactive([
   { label: '全量功能测试用例', checked: true },
@@ -640,35 +993,60 @@ const validationDimensions = reactive([
   { label: '字段值精度校验', checked: true },
 ])
 
-type TcStatus = 'match' | 'mismatch' | 'running'
+type TcStatus = 'match' | 'mismatch' | 'running' | 'pending'
 interface TestCase {
-  id: string
+  id: number
   name: string
   type: string
   table: string
   status: TcStatus
   statusText: string
+  opt?: string
+  srcCase?: string
+  tarCase?: string
 }
 
-const testCases: TestCase[] = [
-  { id: 'TC001', name: '员工信息查询-正常参数', type: '功能测试', table: 'emp', status: 'match', statusText: '结果匹配' },
-  { id: 'TC002', name: '员工薪资查询-边界值', type: '边界测试', table: 'emp, salgrade', status: 'match', statusText: '结果匹配' },
-  { id: 'TC003', name: '部门员工统计-空值参数', type: '边界测试', table: 'emp, dept', status: 'mismatch', statusText: '结果不匹配' },
-  { id: 'TC004', name: '订单查询-高并发场景', type: '性能测试', table: 'orders', status: 'running', statusText: '执行中' },
-  { id: 'TC005', name: '生产高频SQL-客户列表查询', type: '回归测试', table: 'customer', status: 'mismatch', statusText: '耗时差异大' },
-]
+const generatedTestCases = ref<TestCase[]>([])
+
+const regressionProgress = reactive({
+  percent: 0,
+  statusText: '初始化',
+  executedCount: 0,
+  totalCount: 0,
+  passedCount: 0,
+  failedCount: 0,
+  avgTimeDiff: '',
+})
 
 function resultClass(status: TcStatus) {
   if (status === 'match') return 'bg-green-50 text-success border-green-200'
   if (status === 'mismatch') return 'bg-red-50 text-danger border-red-200'
+  if (status === 'running') return 'bg-blue-50 text-primary border-blue-200'
   return 'bg-gray-50 text-gray-600 border-gray-200'
 }
 
 function resultIcon(status: TcStatus) {
   if (status === 'match') return 'fa-check'
   if (status === 'mismatch') return 'fa-times'
-  return 'fa-spinner fa-spin'
+  if (status === 'running') return 'fa-spinner fa-spin'
+  return 'fa-clock-o'
 }
+
+function getOperationText(tc: TestCase) {
+  if (tc.status === 'pending' || tc.status === 'running') {
+    return '查看详情'
+  }
+  if (tc.status === 'mismatch' || tc.statusText === '耗时差异大') {
+    return '查看差异'
+  }
+  return tc.opt || '查看详情'
+}
+
+function showTestCaseDetail(tc: TestCase) {
+  selectedTestCase.value = tc
+}
+
+const selectedTestCase = ref<TestCase | null>(null)
 
 const oracleResult = `SELECT COUNT(*) FROM emp 
 WHERE deptno IS NULL;
@@ -688,29 +1066,10 @@ NULL
 
 执行耗时：0.005秒`
 
-const sqlRewriteChartRef = ref<HTMLCanvasElement>()
 const regressionChartRef = ref<HTMLCanvasElement>()
 const charts: Chart[] = []
 
 function initCharts() {
-  if (sqlRewriteChartRef.value) {
-    charts.push(new Chart(sqlRewriteChartRef.value, {
-      type: 'bar',
-      data: {
-        labels: ['层级查询', '分页语法', '函数转换', '数据类型', '运算符'],
-        datasets: [
-          { label: '已改写', data: [12, 45, 89, 35, 23], backgroundColor: '#165DFF' },
-          { label: '待改写', data: [3, 8, 15, 5, 7], backgroundColor: '#C9CDD4' },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { position: 'top' as const } },
-        scales: { y: { beginAtZero: true, title: { display: true, text: 'SQL数量' } } },
-      },
-    }))
-  }
   if (regressionChartRef.value) {
     charts.push(new Chart(regressionChartRef.value, {
       type: 'bar',
@@ -733,7 +1092,419 @@ function initCharts() {
 
 nextTick(() => initCharts())
 
+/**
+ * 调用AI生成测试用例工作流
+ * @description 在智能改写完成后，根据改写结果生成测试用例
+ */
+async function callTestCaseWorkflow() {
+  selectedTestCase.value = null
+
+  if (!rewriteResult.value.output) {
+    testWorkflowError.value = '没有可用的改写结果，请先执行智能改写'
+    return
+  }
+
+  const output = rewriteResult.value.output
+
+  testWorkflowLoading.value = true
+  testWorkflowError.value = ''
+
+  try {
+    const body = {
+      inputs: {
+        srcdbtype: rewriteForm.value.sourceDbType,
+        tardbtype: rewriteForm.value.targetDbType,
+        output: output,
+      },
+      response_mode: 'streaming',
+      user: 'vb',
+    }
+
+    const response = await fetch(WORKFLOW_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${TEST_AUTHORIZATION_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      throw new Error(`工作流调用失败: ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error('无法获取响应读取器')
+    }
+
+    const decoder = new TextDecoder()
+    let workflowRunId = ''
+    let buffer = ''
+
+    while (true) {
+      const result = await reader.read()
+      const { done, value } = result
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const dataStr = line.slice(6).trim()
+          if (dataStr && dataStr !== '[DONE]') {
+            try {
+              const json = JSON.parse(dataStr)
+              if (json.workflow_run_id) {
+                workflowRunId = json.workflow_run_id
+                reader.cancel()
+                break
+              }
+            } catch {
+            }
+          }
+        }
+      }
+      if (workflowRunId) break
+    }
+
+    if (!workflowRunId) {
+      throw new Error('未能在流式响应中获取 workflow_run_id')
+    }
+
+    testCaseWorkflowRunId.value = workflowRunId
+    await pollTestCaseWorkflowResult(workflowRunId)
+  } catch (err) {
+    testWorkflowError.value = `生成测试用例失败: ${err}`
+    testWorkflowLoading.value = false
+  }
+}
+
+/**
+ * 轮询测试用例工作流执行结果
+ * @param workflowRunId 工作流运行ID
+ */
+async function pollTestCaseWorkflowResult(workflowRunId: string) {
+  const intervalMs = 5000
+
+  while (true) {
+    try {
+      const response = await fetch(`${WORKFLOW_API_URL}/${workflowRunId}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${TEST_AUTHORIZATION_TOKEN}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`查询失败: ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log('测试用例轮询结果:', data)
+
+      if (data.status === 'succeeded' || data.status === 'stopped') {
+        parseTestCaseResult(data)
+        testWorkflowLoading.value = false
+        return
+      } else if (data.status === 'failed') {
+        throw new Error(data.error || '工作流执行失败')
+      }
+    } catch (err) {
+      testWorkflowError.value = `查询失败: ${err}`
+      testWorkflowLoading.value = false
+      return
+    }
+
+    await new Promise(resolve => setTimeout(resolve, intervalMs))
+  }
+}
+
+/**
+ * 启动回归验证
+ * @description 调用回归验证工作流，然后轮询状态
+ */
+async function startRegressionTest() {
+  console.log('点击了执行回归验证按钮')
+  console.log('testCaseWorkflowRunId:', testCaseWorkflowRunId.value)
+
+  regressionLoading.value = true
+  regressionProgress.statusText = '执行中'
+  regressionProgress.percent = 0
+
+  try {
+    const body = {
+      inputs: {
+        workflow_run_id: testCaseWorkflowRunId.value,
+      },
+      response_mode: 'streaming',
+      user: 'vb',
+    }
+
+    const response = await fetch(WORKFLOW_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${REGRESSION_VALIDATE_WORKFLOW_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      throw new Error(`回归验证工作流调用失败: ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error('无法获取响应读取器')
+    }
+
+    const decoder = new TextDecoder()
+    let workflowRunId = ''
+    let buffer = ''
+
+    while (true) {
+      const result = await reader.read()
+      const { done, value } = result
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const dataStr = line.slice(6).trim()
+          if (dataStr && dataStr !== '[DONE]') {
+            try {
+              const json = JSON.parse(dataStr)
+              if (json.workflow_run_id) {
+                workflowRunId = json.workflow_run_id
+                reader.cancel()
+                break
+              }
+            } catch {
+            }
+          }
+        }
+      }
+      if (workflowRunId) break
+    }
+
+    if (!workflowRunId) {
+      throw new Error('未能在流式响应中获取 workflow_run_id')
+    }
+
+    await pollRegressionStatus(workflowRunId)
+  } catch (err) {
+    regressionProgress.statusText = '执行失败'
+    regressionLoading.value = false
+  }
+}
+
+/**
+ * 轮询回归验证状态
+ * @param workflowRunId 工作流运行ID
+ */
+async function pollRegressionStatus(regressionWorkflowRunId: string) {
+  const intervalMs = 5000
+
+  while (true) {
+    try {
+      const statusResponse = await fetch(`${WORKFLOW_API_URL}/${regressionWorkflowRunId}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${REGRESSION_VALIDATE_WORKFLOW_TOKEN}`,
+        },
+      })
+
+      if (!statusResponse.ok) {
+        throw new Error(`查询回归验证状态失败: ${statusResponse.status}`)
+      }
+
+      const statusData = await statusResponse.json()
+      console.log('回归验证状态:', statusData)
+
+      if (statusData.status === 'succeeded' || statusData.status === 'stopped') {
+        await fetchProgressStatus()
+        regressionLoading.value = false
+        return
+      } else if (statusData.status === 'failed') {
+        regressionProgress.statusText = '执行失败'
+        regressionLoading.value = false
+        return
+      }
+
+      await fetchProgressStatus()
+    } catch (err) {
+      console.error('轮询错误:', err)
+    }
+
+    await new Promise(resolve => setTimeout(resolve, intervalMs))
+  }
+}
+
+/**
+ * 获取验证进度状态
+ * @description 调用工作流查询验证进度和测试用例状态
+ */
+async function fetchProgressStatus() {
+  try {
+    const body = {
+      inputs: {
+        workflow_run_id: testCaseWorkflowRunId.value,
+      },
+      response_mode: 'blocking',
+      user: 'vb',
+    }
+
+    const response = await fetch(WORKFLOW_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${REGRESSION_VALIDATE_STATUS_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      throw new Error(`查询验证进度失败: ${response.status}`)
+    }
+
+    const data = await response.json()
+    console.log('验证进度状态:', data)
+    parseRegressionStatus(data)
+  } catch (err) {
+    console.error('获取验证进度错误:', err)
+  }
+}
+
+/**
+ * 解析回归验证状态
+ * @param responseData 工作流返回的完整响应数据
+ */
+function parseRegressionStatus(responseData: any) {
+  if (!responseData) return
+
+  console.log('回归验证状态数据:', JSON.stringify(responseData, null, 2))
+
+  const data = responseData.data
+  if (!data || !data.outputs) return
+
+  const outputs = data.outputs
+  const resultArray = outputs.data?.[0]?.result
+
+  if (!Array.isArray(resultArray) || resultArray.length === 0) return
+
+  const firstItem = resultArray[0]
+
+  resultArray.forEach((item: any) => {
+    const tcId = item.id
+    const existing = generatedTestCases.value.find(tc => tc.id === tcId)
+    if (existing) {
+      existing.name = item.case_name || existing.name
+      existing.type = item.case_type || existing.type
+      existing.table = item.relation || existing.table
+      existing.status = mapTestCaseStatus(item.status)
+      existing.statusText = item.status || existing.statusText
+      existing.opt = item.opt || existing.opt
+    }
+  })
+
+  regressionProgress.executedCount = firstItem.executed_count || 0
+  regressionProgress.passedCount = firstItem.passed_count || 0
+  regressionProgress.failedCount = firstItem.failed_count || 0
+  regressionProgress.totalCount = firstItem.total_count || 0
+  regressionProgress.percent = firstItem.total_count > 0
+    ? Math.round((firstItem.executed_count / firstItem.total_count) * 100)
+    : 0
+  regressionProgress.avgTimeDiff = firstItem.cost_ratio > 0 ? `${(firstItem.cost_ratio * 100).toFixed(1)}%` : ''
+  regressionProgress.statusText = '执行中'
+}
+
+/**
+ * 解析测试用例生成结果
+ * @param responseData 工作流返回的完整响应数据
+ */
+function parseTestCaseResult(responseData: any) {
+  if (!responseData) {
+    testWorkflowError.value = '工作流返回结果为空'
+    return
+  }
+
+  console.log('完整响应数据:', JSON.stringify(responseData, null, 2))
+
+  const outputs = responseData.outputs || {}
+  const dataArray = outputs.data
+
+  if (!dataArray || !Array.isArray(dataArray) || dataArray.length === 0) {
+    testWorkflowError.value = '工作流返回结果格式错误: data 数组为空'
+    return
+  }
+
+  const resultArray = dataArray[0]?.result
+  if (!resultArray || !Array.isArray(resultArray)) {
+    testWorkflowError.value = '工作流返回结果格式错误: result 数组为空'
+    return
+  }
+
+  generatedTestCases.value = resultArray.map((item: any) => ({
+    id: item.id || 0,
+    name: item.case_name || '',
+    type: item.case_type || '',
+    table: item.relation || '',
+    status: mapTestCaseStatus(item.status),
+    statusText: item.status || '未知',
+    opt: item.opt || '查看详情',
+    srcCase: item.src_case || '',
+    tarCase: item.tar_case || '',
+  }))
+
+  regressionProgress.percent = 0
+  regressionProgress.statusText = '测试用例已就绪'
+  regressionProgress.totalCount = generatedTestCases.value.length
+  regressionProgress.executedCount = 0
+  regressionProgress.passedCount = 0
+  regressionProgress.failedCount = 0
+  regressionProgress.avgTimeDiff = ''
+
+  console.log('解析后的测试用例:', generatedTestCases.value)
+}
+
+/**
+ * 映射测试用例状态
+ * @param status 原始状态字符串
+ */
+function mapTestCaseStatus(status: string): TcStatus {
+  if (!status) return 'pending'
+  const statusMap: Record<string, TcStatus> = {
+    '初始化': 'pending',
+    '执行中': 'running',
+    '成功': 'match',
+    '失败': 'mismatch',
+    '通过': 'match',
+    '不匹配': 'mismatch',
+    '结果不匹配': 'mismatch',
+    '结果匹配': 'match',
+  }
+  return statusMap[status] || 'pending'
+}
+
 onBeforeUnmount(() => {
   charts.forEach(c => c.destroy())
+  stopRewritePolling()
 })
 </script>
+
+<style scoped>
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+</style>
