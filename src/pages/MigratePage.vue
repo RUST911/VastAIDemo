@@ -237,292 +237,6 @@
         </button>
       </div>
     </div>
-
-    <div v-if="showRewriteResult" class="card p-6 mb-6">
-      <div v-if="rewritePolling" class="min-h-[40vh] flex flex-col items-center justify-center">
-        <div class="animate-spin rounded-full h-16 w-16 border-4 border-primary/20 border-t-primary mb-6"></div>
-        <h3 class="text-xl font-bold text-gray-800 mb-2">正在进行SQL智能改写中</h3>
-        <p class="text-gray-500">AI正在分析SQL语法、优化执行计划，请稍候...</p>
-        <p class="text-sm text-gray-400 mt-2">执行可能需要较长时间，请勿关闭页面</p>
-      </div>
-
-      <div v-else-if="rewriteLoading" class="min-h-[40vh] flex flex-col items-center justify-center">
-        <div class="animate-spin rounded-full h-16 w-16 border-4 border-primary/20 border-t-primary mb-6"></div>
-        <h3 class="text-xl font-bold text-gray-800 mb-2">正在提交任务...</h3>
-        <p class="text-gray-500">正在上传文件并启动改写任务，请稍候...</p>
-      </div>
-
-      <div v-else-if="rewriteErrorMessage" class="min-h-[40vh] flex flex-col items-center justify-center">
-        <div class="rounded-full h-16 w-16 bg-red-100 flex items-center justify-center mb-6">
-          <i class="fa fa-exclamation-triangle text-3xl text-red-500"></i>
-        </div>
-        <h3 class="text-xl font-bold text-gray-800 mb-2">执行出错</h3>
-        <p class="text-gray-500 text-center max-w-md">{{ rewriteErrorMessage }}</p>
-      </div>
-
-      <div v-else>
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="section-title">
-            <i class="fa fa-bar-chart"></i>智能改写概览
-          </h2>
-          <button class="btn-primary" @click="exportRewriteSqlFile">
-            <i class="fa fa-download mr-2"></i>
-            导出.SQL文件
-          </button>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div
-            class="rounded-xl p-6 text-center transition-all duration-300 cursor-pointer"
-            :class="rewriteFilterStatus === 'all' ? 'bg-blue-100 border-2 border-blue-400 shadow-md' : 'bg-blue-50 border border-blue-100 hover:shadow-lg hover:border-blue-300'"
-            @click="setRewriteFilter('all')"
-          >
-            <div class="text-4xl font-bold text-blue-600 mb-2">{{ rewriteResult.total }}</div>
-            <div class="text-sm text-gray-600">总SQL数</div>
-          </div>
-          <div
-            class="rounded-xl p-6 text-center transition-all duration-300 cursor-pointer"
-            :class="rewriteFilterStatus === 'success' ? 'bg-green-100 border-2 border-green-400 shadow-md' : 'bg-green-50 border border-green-100 hover:shadow-lg hover:border-green-300'"
-            @click="setRewriteFilter('success')"
-          >
-            <div class="text-4xl font-bold text-green-600 mb-2">{{ rewriteResult.success }}</div>
-            <div class="text-sm text-gray-600">改写成功</div>
-          </div>
-          <div
-            class="rounded-xl p-6 text-center transition-all duration-300 cursor-pointer"
-            :class="rewriteFilterStatus === 'failed' ? 'bg-red-100 border-2 border-red-400 shadow-md' : 'bg-red-50 border border-red-100 hover:shadow-lg hover:border-red-300'"
-            @click="setRewriteFilter('failed')"
-          >
-            <div class="text-4xl font-bold text-red-600 mb-2">{{ rewriteResult.failed }}</div>
-            <div class="text-sm text-gray-600">改写失败</div>
-          </div>
-        </div>
-
-        <div class="space-y-6">
-          <div
-            v-for="item in rewriteFilteredItems"
-            :key="item.id"
-            class="p-4 rounded-lg border"
-            :class="{
-              'bg-green-50/30 border-green-200': item.status === 'success',
-              'bg-red-50/30 border-red-200': item.status === 'failed'
-            }"
-          >
-            <div class="flex justify-between items-start mb-4">
-              <div class="flex items-center gap-2">
-                <span
-                  class="px-3 py-1 rounded-full text-xs font-medium"
-                  :class="{
-                    'bg-green-100 text-green-700': item.status === 'success',
-                    'bg-red-100 text-red-700': item.status === 'failed'
-                  }"
-                >
-                  <i :class="item.status === 'success' ? 'fa fa-check' : 'fa fa-times'" class="mr-1"></i>
-                  {{ item.status === 'success' ? '改写成功' : '改写失败' }}
-                </span>
-                <span class="text-sm text-gray-500">#{{ item.id }} 对象：{{ item.originalSql }}</span>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">原始SQL</label>
-                <textarea
-                  v-model="item.srcDdl"
-                  class="w-full h-36 p-2 rounded-lg border border-gray-200 font-mono text-sm bg-white resize-none focus:outline-none focus:border-primary"
-                ></textarea>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                  {{ item.status === 'success' ? '问题SQL' : '改写后SQL' }}
-                </label>
-                <textarea
-                  v-if="item.status === 'success'"
-                  v-model="item.errorSql"
-                  class="w-full h-36 p-2 rounded-lg border border-orange-300 font-mono text-sm bg-orange-50 resize-none focus:outline-none focus:border-primary"
-                ></textarea>
-                <textarea
-                  v-else
-                  v-model="item.errorSql"
-                  class="w-full h-36 p-2 rounded-lg border border-red-300 font-mono text-sm bg-white resize-none focus:outline-none focus:border-primary"
-                ></textarea>
-              </div>
-              <div v-if="item.status === 'success'">
-                <label class="block text-sm font-medium text-gray-700 mb-2">改写后SQL</label>
-                <textarea
-                  v-model="item.rewrittenSql"
-                  class="w-full h-36 p-2 rounded-lg border border-green-300 font-mono text-sm bg-green-50 resize-none focus:outline-none focus:border-primary"
-                ></textarea>
-              </div>
-              <div v-if="item.status === 'success'">
-                <label class="block text-sm font-medium text-gray-700 mb-2">改写详情</label>
-                <div
-                  class="w-full h-36 p-2 rounded-lg border border-blue-200 bg-blue-50 text-sm overflow-y-auto"
-                  v-html="item.description"
-                ></div>
-              </div>
-              <div v-if="item.status === 'failed'">
-                <label class="block text-sm font-medium text-gray-700 mb-2">失败原因</label>
-                <div
-                  class="w-full h-36 p-2 rounded-lg border border-red-300 bg-red-50 text-sm overflow-y-auto"
-                  v-html="item.failedReason"
-                ></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-
-
-    <div class="card p-6 mb-6">
-      <h2 class="section-title">
-        <i class="fa fa-vial"></i>智能测试用例生成与回归验证
-      </h2>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          <h3 class="font-semibold mb-3 text-gray-800">测试用例生成范围</h3>
-          <div class="space-y-2 text-sm">
-            <label v-for="opt in testScopeOptions" :key="opt.label" class="flex items-center">
-              <input type="checkbox" v-model="opt.checked" class="mr-2" />
-              <span>{{ opt.label }}</span>
-            </label>
-          </div>
-          <button class="btn-primary w-full mt-4 py-2" @click="callTestCaseWorkflow" :disabled="testWorkflowLoading || !showRewriteResult">
-            <i v-if="testWorkflowLoading" class="fa fa-spinner fa-spin mr-2"></i>
-            <i v-else class="fa fa-magic mr-2"></i>
-            {{ testWorkflowLoading ? '生成中...' : 'AI生成测试用例' }}
-          </button>
-        </div>
-        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          <h3 class="font-semibold mb-3 text-gray-800">测试执行配置</h3>
-          <div class="space-y-4 text-sm">
-            <div class="form-item">
-              <label class="block text-gray-700 mb-1">并发用户数</label>
-              <input v-model.number="testConfig.concurrentUsers" type="number" :min="1" :max="1000" class="form-input" />
-            </div>
-            <div class="form-item">
-              <label class="block text-gray-700 mb-1">执行时长 (秒)</label>
-              <input v-model.number="testConfig.duration" type="number" :min="60" :max="3600" class="form-input" />
-            </div>
-            <div>
-              <label class="block text-gray-700 mb-1">校验维度</label>
-              <div class="space-y-1 mt-1">
-                <label v-for="dim in validationDimensions" :key="dim.label" class="flex items-center">
-                  <input type="checkbox" v-model="dim.checked" class="mr-2" />
-                  <span>{{ dim.label }}</span>
-                </label>
-              </div>
-            </div>
-            <button
-              class="bg-success text-white w-full mt-4 py-2 rounded-lg hover:bg-success/90 transition-colors flex items-center justify-center gap-2"
-              @click="startRegressionTest"
-            >
-              <i v-if="regressionLoading" class="fa fa-spinner fa-spin"></i>
-              <i v-else class="fa fa-play mr-2"></i>
-              {{ regressionLoading ? '执行中...' : '执行回归验证' }}
-            </button>
-          </div>
-        </div>
-        <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          <h3 class="font-semibold mb-3 text-gray-800">验证进度</h3>
-          <div class="flex items-center justify-center h-32">
-            <div class="text-center">
-              <div class="text-3xl font-bold text-primary">{{ regressionProgress.percent }}%</div>
-              <div class="text-sm text-gray-600 mt-1">{{ regressionProgress.statusText }}</div>
-            </div>
-          </div>
-          <div class="mt-4 space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span>已执行用例数</span>
-              <span class="font-medium">{{ regressionProgress.executedCount || 0 }} / {{ regressionProgress.totalCount || 0 }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span>通过用例数</span>
-              <span class="font-medium text-success">{{ regressionProgress.passedCount || 0 }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span>失败用例数</span>
-              <span class="font-medium text-danger">{{ regressionProgress.failedCount || 0 }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span>平均执行耗时对比</span>
-              <span class="font-medium">{{ regressionProgress.avgTimeDiff || 0 }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="mb-6">
-        <h3 class="font-semibold mb-4 text-gray-800">生成的测试用例列表</h3>
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">ID</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用例名称</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用例类型</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">关联对象</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">执行状态</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-              </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200 text-sm">
-              <tr v-if="testWorkflowLoading">
-                <td colspan="6" class="px-4 py-12 text-center text-gray-500">
-                  <i class="fa fa-spinner fa-spin text-xl mb-2"></i>
-                  <p>生成用例中...</p>
-                </td>
-              </tr>
-              <tr v-else-if="generatedTestCases.length === 0">
-                <td colspan="6" class="px-4 py-12 text-center text-gray-500">
-                  <i class="fa fa-magic text-2xl mb-2"></i>
-                  <p>点击上方"AI生成测试用例"按钮继续</p>
-                </td>
-              </tr>
-              <tr v-else v-for="tc in generatedTestCases" :key="tc.id">
-                <td class="px-4 py-3 whitespace-nowrap">{{ tc.id }}</td>
-                <td class="px-4 py-3 whitespace-nowrap">{{ tc.name }}</td>
-                <td class="px-4 py-3 whitespace-nowrap">{{ tc.type }}</td>
-                <td class="px-4 py-3 whitespace-nowrap">{{ tc.table }}</td>
-                <td class="px-4 py-3 whitespace-nowrap">
-                  <div
-                    class="flex items-center gap-2 px-2 py-1 rounded text-xs font-medium border"
-                    :class="resultClass(tc.status)"
-                  >
-                    <i class="fa" :class="resultIcon(tc.status)"></i> {{ tc.statusText }}
-                  </div>
-                </td>
-                <td class="px-4 py-3 whitespace-nowrap">
-                  <button
-                    class="text-xs text-primary hover:underline cursor-pointer"
-                    @click="showTestCaseDetail(tc)"
-                  >{{ getOperationText(tc) }}</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div v-if="selectedTestCase" class="mb-6">
-        <h3 class="font-semibold mb-4 text-gray-800">测试用例比对 ({{ selectedTestCase.id }})</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
-            <div class="font-medium text-sm mb-2">源库测试用例</div>
-            <div class="bg-white rounded p-2 text-xs font-mono h-40 overflow-auto">
-              <pre>{{ selectedTestCase.srcCase }}</pre>
-            </div>
-          </div>
-          <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
-            <div class="font-medium text-sm mb-2">目标库测试用例</div>
-            <div class="bg-white rounded p-2 text-xs font-mono h-40 overflow-auto">
-              <pre>{{ selectedTestCase.tarCase }}</pre>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   </main>
   <AppFooter />
   </div>
@@ -530,11 +244,14 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, nextTick, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import { Chart, registerables } from 'chart.js'
 import AppHeader from '@/components/AppHeader.vue'
 import AppFooter from '@/components/AppFooter.vue'
 
 Chart.register(...registerables)
+
+const router = useRouter()
 
 const sourceDbTypes = ['Oracle 19c', 'MySQL 8.0', 'SQL Server 2019', 'PostgreSQL 14']
 const targetDbTypes = ['MySQL 8.0', 'PostgreSQL 14', 'vastbase', '达梦 8', '人大金仓']
@@ -707,13 +424,13 @@ const submitRewriteForm = async () => {
 
   rewriteLoading.value = true
   rewriteErrorMessage.value = ''
-  showRewriteResult.value = true
 
   try {
     const fileInfo = await uploadRewriteFileToDify(rewriteFile.value!)
     const workflowResponse = await callRewriteWorkflowApi(fileInfo)
     if (workflowResponse.task_id) {
-      startRewritePolling(workflowResponse.task_id)
+      // 跳转到结果页面，传递taskId
+      router.push({ name: 'migrateRewriteResult', query: { taskId: workflowResponse.task_id } })
     } else {
       throw new Error('未能获取有效的 task_id')
     }
@@ -1494,7 +1211,6 @@ function mapTestCaseStatus(status: string): TcStatus {
 
 onBeforeUnmount(() => {
   charts.forEach(c => c.destroy())
-  stopRewritePolling()
 })
 </script>
 

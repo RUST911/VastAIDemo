@@ -35,6 +35,11 @@ const routes = [
     name: 'feedbackAdmin',
     component: () => import('@/pages/FeedbackAdminPage.vue'),
   },
+  {
+    path: '/migrate/rewrite-result',
+    name: 'migrateRewriteResult',
+    component: () => import('@/pages/MigrateRewriteResultPage.vue'),
+  }
 ]
 
 const router = createRouter({
