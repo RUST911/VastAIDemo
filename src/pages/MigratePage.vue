@@ -429,8 +429,15 @@ const submitRewriteForm = async () => {
     const fileInfo = await uploadRewriteFileToDify(rewriteFile.value!)
     const workflowResponse = await callRewriteWorkflowApi(fileInfo)
     if (workflowResponse.task_id) {
-      // 跳转到结果页面，传递taskId
-      router.push({ name: 'migrateRewriteResult', query: { taskId: workflowResponse.task_id } })
+      // 跳转到结果页面，传递taskId和数据库类型信息
+      router.push({
+        name: 'migrateRewriteResult',
+        query: {
+          taskId: workflowResponse.task_id,
+          srcdbtype: rewriteForm.value.sourceDbType,
+          tardbtype: rewriteForm.value.targetDbType,
+        }
+      })
     } else {
       throw new Error('未能获取有效的 task_id')
     }
