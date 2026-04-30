@@ -252,7 +252,7 @@
                   </span>
                   <span class="flex items-center gap-1">
                     <i class="fa fa-database"></i>
-                    对象类型: {{ item.originalSql.split('.')[1] ? '存储过程/函数' : '表' }}
+                    对象类型: {{ item.objtype || '未知' }}
                   </span>
                 </div>
                 <div class="flex items-center gap-2">
@@ -353,7 +353,9 @@
                   </div>
                 </div>
                 <button
-                  class="bg-success text-white w-full mt-4 py-2 rounded-lg hover:bg-success/90 transition-colors flex items-center justify-center gap-2"
+                  class="bg-success text-white w-full mt-4 py-2 rounded-lg hover:bg-success/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  :disabled="!testCaseWorkflowRunId || regressionLoading || testWorkflowLoading"
+                  :title="!testCaseWorkflowRunId ? '生成测试用例后执行' : ''"
                   @click="startRegressionTest"
                 >
                   <i v-if="regressionLoading" class="fa fa-spinner fa-spin"></i>
@@ -392,7 +394,7 @@
           </div>
           <div class="mb-6">
             <h3 class="font-semibold mb-4 text-gray-800">生成的测试用例列表</h3>
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto h-80 overflow-y-auto border border-gray-200 rounded-lg">
               <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                   <tr>
@@ -417,7 +419,7 @@
                       <p>点击上方"AI生成测试用例"按钮继续</p>
                     </td>
                   </tr>
-                  <tr v-else v-for="tc in generatedTestCases" :key="tc.id">
+                  <tr v-else v-for="tc in paginatedTestCases" :key="tc.id">
                     <td class="px-4 py-3 whitespace-nowrap">{{ tc.id }}</td>
                     <td class="px-4 py-3 whitespace-nowrap">{{ tc.name }}</td>
                     <td class="px-4 py-3 whitespace-nowrap">{{ tc.type }}</td>
@@ -440,21 +442,72 @@
                 </tbody>
               </table>
             </div>
+
+            <div v-if="generatedTestCases.length > 0" class="flex justify-center items-center gap-4 mt-4">
+              <button
+                class="px-3 py-1 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                :disabled="testCaseCurrentPage === 1"
+                @click="testCaseCurrentPage--"
+              >
+                <i class="fa fa-angle-left text-gray-600"></i>
+                <span class="text-sm text-gray-600">上一页</span>
+              </button>
+              <span class="text-sm text-gray-600 px-4">
+                第 {{ testCaseCurrentPage }} / {{ testCaseTotalPages }} 页，共 {{ generatedTestCases.length }} 条
+              </span>
+              <button
+                class="px-3 py-1 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                :disabled="testCaseCurrentPage === testCaseTotalPages"
+                @click="testCaseCurrentPage++"
+              >
+                <span class="text-sm text-gray-600">下一页</span>
+                <i class="fa fa-angle-right text-gray-600"></i>
+              </button>
+            </div>
           </div>
 
           <div v-if="selectedTestCase" class="mb-6">
             <h3 class="font-semibold mb-4 text-gray-800">测试用例比对 ({{ selectedTestCase.id }})</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
                 <div class="font-medium text-sm mb-2">源库测试用例</div>
-                <div class="bg-white rounded p-2 text-xs font-mono h-40 overflow-auto">
-                  <pre>{{ selectedTestCase.srcCase }}</pre>
+                <div class="bg-white rounded p-2 text-xs font-mono h-32 overflow-auto whitespace-pre-wrap break-all">
+                  {{ selectedTestCase.srcCase?.replace(/\\n/g, '\n') }}
                 </div>
               </div>
               <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
                 <div class="font-medium text-sm mb-2">目标库测试用例</div>
-                <div class="bg-white rounded p-2 text-xs font-mono h-40 overflow-auto">
-                  <pre>{{ selectedTestCase.tarCase }}</pre>
+                <div class="bg-white rounded p-2 text-xs font-mono h-32 overflow-auto whitespace-pre-wrap break-all">
+                  {{ selectedTestCase.tarCase?.replace(/\\n/g, '\n') }}
+                </div>
+              </div>
+            </div>
+
+            <div v-if="selectedTestCase.status !== 'pending' && selectedTestCase.status !== 'running'" class="space-y-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                  <div class="font-medium text-sm mb-2 text-blue-700">源库查询结果</div>
+                  <div class="bg-white rounded p-2 text-xs font-mono h-24 overflow-auto whitespace-pre-wrap break-all">
+                    {{ (selectedTestCase.srcResult || '无').replace(/\\n/g, '\n') }}
+                  </div>
+                  <div class="mt-2 text-xs text-blue-600">
+                    <span class="font-medium">执行时长:</span> {{ selectedTestCase.srcCost || '无' }}
+                  </div>
+                </div>
+                <div class="bg-green-50 rounded-lg p-3 border border-green-200">
+                  <div class="font-medium text-sm mb-2 text-green-700">目标库查询结果</div>
+                  <div class="bg-white rounded p-2 text-xs font-mono h-24 overflow-auto whitespace-pre-wrap break-all">
+                    {{ (selectedTestCase.tarResult || '无').replace(/\\n/g, '\n') }}
+                  </div>
+                  <div class="mt-2 text-xs text-green-600">
+                    <span class="font-medium">执行时长:</span> {{ selectedTestCase.tarCost || '无' }}
+                  </div>
+                </div>
+              </div>
+              <div v-if="selectedTestCase.diff && selectedTestCase.status !== 'match'" class="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                <div class="font-medium text-sm mb-2 text-yellow-700">差异与建议</div>
+                <div class="bg-white rounded p-2 text-sm">
+                  {{ selectedTestCase.diff }}
                 </div>
               </div>
             </div>
@@ -478,6 +531,14 @@ const route = useRoute()
 const DIFY_API_BASE = import.meta.env.VITE_MIGRATE_DIFY_API_BASE || 'http://172.16.105.101:3001'
 const WORKFLOW_API_URL = `${DIFY_API_BASE}/v1/workflows/run`
 const SQLREWRITE_AUTHORIZATION_TOKEN = import.meta.env.VITE_SQLREWRITE_AUTHORIZATION_TOKEN || 'app-oIQTTwWLdyjnwPEdHUEQvBgR'
+const TEST_AUTHORIZATION_TOKEN = import.meta.env.VITE_CREATE_TESTCASE_AUTHORIZATION_TOKEN || 'app-cU3nZGeSRrMYEloJN1BApyyL'
+const REGRESSION_VALIDATE_WORKFLOW_TOKEN = import.meta.env.VITE_REGRESSION_VALIDATE_WORKFLOW_TOKEN || 'app-sP3NOGE2NR3oZdN6HoKdsldP'
+const REGRESSION_VALIDATE_STATUS_TOKEN = import.meta.env.VITE_REGRESSION_VALIDATE_STATUS_TOKEN || 'app-kqX9lK5woZx1TzC7UqkJ5R3N'
+
+const rewriteForm = ref({
+  sourceDbType: route.query.srcdbtype as string || '',
+  targetDbType: route.query.tardbtype as string || '',
+})
 
 const rewriteLoading = ref(false)
 const rewritePolling = ref(false)
@@ -490,6 +551,7 @@ interface RewriteItem {
   id: number
   status: 'success' | 'failed'
   originalSql: string
+  objtype: string
   srcDdl: string
   errorSql: string
   rewrittenSql?: string
@@ -542,7 +604,9 @@ function setRewriteFilter(status: 'all' | 'success' | 'failed') {
 // 智能测试用例生成与回归验证相关
 const showTestSection = ref(false)
 const testWorkflowLoading = ref(false)
+const testWorkflowError = ref('')
 const regressionLoading = ref(false)
+const testCaseWorkflowRunId = ref('')
 
 const testScopeOptions = ref([
   { label: '全量对象覆盖', checked: true },
@@ -574,10 +638,28 @@ interface TestCase {
   opt?: string
   srcCase?: string
   tarCase?: string
+  srcResult?: string
+  tarResult?: string
+  srcCost?: string
+  tarCost?: string
+  diff?: string
 }
 
 const generatedTestCases = ref<TestCase[]>([])
 const selectedTestCase = ref<TestCase | null>(null)
+
+const testCasePageSize = 5
+const testCaseCurrentPage = ref(1)
+
+const testCaseTotalPages = computed(() => {
+  return Math.ceil(generatedTestCases.value.length / testCasePageSize) || 1
+})
+
+const paginatedTestCases = computed(() => {
+  const start = (testCaseCurrentPage.value - 1) * testCasePageSize
+  const end = start + testCasePageSize
+  return generatedTestCases.value.slice(start, end)
+})
 
 const regressionProgress = ref({
   percent: 0,
@@ -646,34 +728,402 @@ async function copyToClipboard(text: string) {
 }
 
 function callTestCaseWorkflow() {
+  selectedTestCase.value = null
+
+  if (!rewriteResult.value.output) {
+    testWorkflowError.value = '没有可用的改写结果，请先执行智能改写'
+    return
+  }
+
+  const output = rewriteResult.value.output
+
   testWorkflowLoading.value = true
-  // 模拟生成测试用例
-  setTimeout(() => {
-    testWorkflowLoading.value = false
-    generatedTestCases.value = [
-      { id: 1, name: '测试用例1', type: '功能测试', table: 'EMP', status: 'match', statusText: '通过' },
-      { id: 2, name: '测试用例2', type: '边界测试', table: 'DEPT', status: 'match', statusText: '通过' },
-      { id: 3, name: '测试用例3', type: '性能测试', table: 'EMP', status: 'mismatch', statusText: '耗时差异大' },
-    ]
-  }, 1500)
+  testWorkflowError.value = ''
+
+  callTestCaseWorkflowImpl(output)
 }
 
-function startRegressionTest() {
+async function callTestCaseWorkflowImpl(output: string) {
+  try {
+    const body = {
+      inputs: {
+        srcdbtype: rewriteForm.value?.sourceDbType || '',
+        tardbtype: rewriteForm.value?.targetDbType || '',
+        output: output,
+      },
+      response_mode: 'streaming',
+      user: 'vb',
+    }
+
+    const response = await fetch(WORKFLOW_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${TEST_AUTHORIZATION_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      throw new Error(`工作流调用失败: ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error('无法获取响应读取器')
+    }
+
+    const decoder = new TextDecoder()
+    let workflowRunId = ''
+    let buffer = ''
+
+    while (true) {
+      const result = await reader.read()
+      const { done, value } = result
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const dataStr = line.slice(6).trim()
+          if (dataStr && dataStr !== '[DONE]') {
+            try {
+              const json = JSON.parse(dataStr)
+              if (json.workflow_run_id) {
+                workflowRunId = json.workflow_run_id
+                reader.cancel()
+                break
+              }
+            } catch {
+            }
+          }
+        }
+      }
+      if (workflowRunId) break
+    }
+
+    if (!workflowRunId) {
+      throw new Error('未能在流式响应中获取 workflow_run_id')
+    }
+
+    testCaseWorkflowRunId.value = workflowRunId
+    await pollTestCaseWorkflowResult(workflowRunId)
+  } catch (err) {
+    testWorkflowError.value = `生成测试用例失败: ${err}`
+    testWorkflowLoading.value = false
+  }
+}
+
+async function pollTestCaseWorkflowResult(workflowRunId: string) {
+  const intervalMs = 5000
+
+  while (true) {
+    try {
+      const response = await fetch(`${WORKFLOW_API_URL}/${workflowRunId}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${TEST_AUTHORIZATION_TOKEN}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`查询失败: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      if (data.status === 'succeeded' || data.status === 'stopped') {
+        parseTestCaseResult(data)
+        testWorkflowLoading.value = false
+        return
+      } else if (data.status === 'failed') {
+        throw new Error(data.error || '工作流执行失败')
+      }
+    } catch (err) {
+      testWorkflowError.value = `查询失败: ${err}`
+      testWorkflowLoading.value = false
+      return
+    }
+
+    await new Promise(resolve => setTimeout(resolve, intervalMs))
+  }
+}
+
+function parseTestCaseResult(responseData: any) {
+  if (!responseData) {
+    testWorkflowError.value = '工作流返回结果为空'
+    return
+  }
+
+  const outputs = responseData.outputs || {}
+  const dataArray = outputs.data
+
+  if (!dataArray || !Array.isArray(dataArray) || dataArray.length === 0) {
+    testWorkflowError.value = '工作流返回结果格式错误: data 数组为空'
+    return
+  }
+
+  const resultArray = dataArray[0]?.result
+  if (!resultArray || !Array.isArray(resultArray)) {
+    testWorkflowError.value = '工作流返回结果格式错误: result 数组为空'
+    return
+  }
+
+  testCaseCurrentPage.value = 1
+  generatedTestCases.value = resultArray.map((item: any) => ({
+    id: item.id || 0,
+    name: item.case_name || '',
+    type: item.case_type || '',
+    table: item.relation || '',
+    status: mapTestCaseStatus(item.status),
+    statusText: item.status || '未知',
+    opt: item.opt || '查看详情',
+    srcCase: item.src_case || '',
+    tarCase: item.tar_case || '',
+    srcResult: item.src_result || '',
+    tarResult: item.tar_result || '',
+    srcCost: item.src_cost || '',
+    tarCost: item.tar_cost || '',
+    diff: item.diff || '',
+  }))
+
+  regressionProgress.value.percent = 0
+  regressionProgress.value.statusText = '测试用例已就绪'
+  regressionProgress.value.totalCount = generatedTestCases.value.length
+  regressionProgress.value.executedCount = 0
+  regressionProgress.value.passedCount = 0
+  regressionProgress.value.failedCount = 0
+  regressionProgress.value.avgTimeDiff = ''
+}
+
+function mapTestCaseStatus(status: string): TcStatus {
+  if (!status) return 'pending'
+  const statusMap: Record<string, TcStatus> = {
+    '初始化': 'pending',
+    '执行中': 'running',
+    '成功': 'match',
+    '失败': 'mismatch',
+    '通过': 'match',
+    '不匹配': 'mismatch',
+    '结果不匹配': 'mismatch',
+    '结果匹配': 'match',
+  }
+  return statusMap[status] || 'pending'
+}
+
+async function startRegressionTest() {
   regressionLoading.value = true
   regressionProgress.value.statusText = '执行中'
-  // 模拟回归验证
-  setTimeout(() => {
-    regressionLoading.value = false
-    regressionProgress.value = {
-      percent: 100,
-      statusText: '完成',
-      executedCount: 3,
-      totalCount: 3,
-      passedCount: 2,
-      failedCount: 1,
-      avgTimeDiff: '+15%',
+  regressionProgress.value.percent = 0
+
+  try {
+    const body = {
+      inputs: {
+        workflow_run_id: testCaseWorkflowRunId.value,
+      },
+      response_mode: 'streaming',
+      user: 'vb',
     }
-  }, 2000)
+
+    const response = await fetch(WORKFLOW_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${REGRESSION_VALIDATE_WORKFLOW_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      throw new Error(`回归验证工作流调用失败: ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error('无法获取响应读取器')
+    }
+
+    const decoder = new TextDecoder()
+    let workflowRunId = ''
+    let buffer = ''
+
+    while (true) {
+      const result = await reader.read()
+      const { done, value } = result
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const dataStr = line.slice(6).trim()
+          if (dataStr && dataStr !== '[DONE]') {
+            try {
+              const json = JSON.parse(dataStr)
+              if (json.workflow_run_id) {
+                workflowRunId = json.workflow_run_id
+                reader.cancel()
+                break
+              }
+            } catch {
+            }
+          }
+        }
+      }
+      if (workflowRunId) break
+    }
+
+    if (!workflowRunId) {
+      throw new Error('未能在流式响应中获取 workflow_run_id')
+    }
+
+    await pollRegressionStatus(workflowRunId)
+  } catch (err) {
+    regressionProgress.value.statusText = '执行失败'
+    regressionLoading.value = false
+  }
+}
+
+async function pollRegressionStatus(regressionWorkflowRunId: string) {
+  const intervalMs = 5000
+  console.log('进入 pollRegressionStatus, workflowRunId:', regressionWorkflowRunId)
+
+  while (true) {
+    try {
+      const statusResponse = await fetch(`${WORKFLOW_API_URL}/${regressionWorkflowRunId}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${REGRESSION_VALIDATE_WORKFLOW_TOKEN}`,
+        },
+      })
+
+      if (!statusResponse.ok) {
+        throw new Error(`查询回归验证状态失败: ${statusResponse.status}`)
+      }
+
+      const statusData = await statusResponse.json()
+      console.log('回归验证状态:', statusData.status)
+
+      if (statusData.status === 'succeeded' || statusData.status === 'stopped') {
+        console.log('回归验证完成，获取进度')
+        await fetchProgressStatus()
+
+        let pendingCount = 0
+        generatedTestCases.value.forEach(tc => {
+          if (tc.statusText === '初始化') {
+            tc.status = 'mismatch'
+            tc.statusText = '执行异常'
+            tc.diff = '执行异常，请查看后台工作流报错'
+            pendingCount++
+          }
+        })
+
+        if (pendingCount > 0) {
+          regressionProgress.value.failedCount += pendingCount
+          regressionProgress.value.executedCount += pendingCount
+          regressionProgress.value.percent = regressionProgress.value.totalCount > 0
+            ? Math.round((regressionProgress.value.executedCount / regressionProgress.value.totalCount) * 100)
+            : 0
+        }
+
+        const passRate = regressionProgress.value.totalCount > 0
+          ? `${regressionProgress.value.passedCount}/${regressionProgress.value.totalCount}`
+          : '0/0'
+        regressionProgress.value.statusText = `已完成，通过率：${passRate}`
+        regressionLoading.value = false
+        return
+      } else if (statusData.status === 'failed') {
+        console.log('回归验证失败')
+        regressionProgress.value.statusText = '执行失败'
+        regressionLoading.value = false
+        return
+      }
+
+      console.log('回归验证仍在执行中，继续轮询并获取进度...')
+      await fetchProgressStatus()
+    } catch (err) {
+      console.error('轮询错误:', err)
+    }
+
+    await new Promise(resolve => setTimeout(resolve, intervalMs))
+  }
+}
+
+async function fetchProgressStatus() {
+  try {
+    const body = {
+      inputs: {
+        workflow_run_id: testCaseWorkflowRunId.value,
+      },
+      response_mode: 'blocking',
+      user: 'vb',
+    }
+
+    const response = await fetch(WORKFLOW_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${REGRESSION_VALIDATE_STATUS_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      throw new Error(`查询验证进度失败: ${response.status}`)
+    }
+
+    const data = await response.json()
+    parseRegressionStatus(data)
+  } catch (err) {
+    console.error('获取验证进度错误:', err)
+  }
+}
+
+function parseRegressionStatus(responseData: any) {
+  if (!responseData) return
+
+  const data = responseData.data
+  if (!data || !data.outputs) return
+
+  const outputs = data.outputs
+  const resultArray = outputs.data?.[0]?.result
+
+  if (!Array.isArray(resultArray) || resultArray.length === 0) return
+
+  const firstItem = resultArray[0]
+
+  resultArray.forEach((item: any) => {
+    const tcId = item.id
+    const existing = generatedTestCases.value.find(tc => tc.id === tcId)
+    if (existing) {
+      existing.name = item.case_name || existing.name
+      existing.type = item.case_type || existing.type
+      existing.table = item.relation || existing.table
+      existing.status = mapTestCaseStatus(item.status)
+      existing.statusText = item.status || existing.statusText
+      existing.opt = item.opt || existing.opt
+      existing.srcResult = item.src_result || existing.srcResult
+      existing.tarResult = item.tar_result || existing.tarResult
+      existing.srcCost = item.src_cost || existing.srcCost
+      existing.tarCost = item.tar_cost || existing.tarCost
+      existing.diff = item.diff || existing.diff
+    }
+  })
+
+  regressionProgress.value.executedCount = firstItem.executed_count || 0
+  regressionProgress.value.passedCount = firstItem.passed_count || 0
+  regressionProgress.value.failedCount = firstItem.failed_count || 0
+  regressionProgress.value.totalCount = firstItem.total_count || 0
+  regressionProgress.value.percent = firstItem.total_count > 0
+    ? Math.round((firstItem.executed_count / firstItem.total_count) * 100)
+    : 0
+  regressionProgress.value.avgTimeDiff = firstItem.cost_ratio > 0 ? `${(firstItem.cost_ratio * 100).toFixed(1)}%` : ''
+  regressionProgress.value.statusText = '执行中'
 }
 
 function goBack() {
@@ -760,12 +1210,12 @@ function parseRewriteResult(outputs: any) {
 
   rewriteResult.value = {
     total: items.length,
-    success: items.filter((i: any) => i.status === 'success' || i.result === 'success').length,
-    failed: items.filter((i: any) => i.status === 'failed' || i.result === 'failed').length,
+    success: items.filter((i: any) => i.result === 'PASS' || i.status === 'success').length,
+    failed: items.filter((i: any) => i.result === 'FAIL' || i.status === 'failed').length,
     output: rawOutput,
     items: items.map((item: any, index: number) => {
-      // 判断成功/失败：优先使用status字段，其次使用result字段
-      const isSuccess = item.status === 'success' || item.result === 'success' || item.result === 'PASS'
+      // 判断成功/失败：result 为 'PASS' 表示成功
+      const isSuccess = item.result === 'PASS' || item.status === 'success'
       
       // 构建失败原因文本
       let failedReasonText = ''
@@ -814,9 +1264,10 @@ function parseRewriteResult(outputs: any) {
         id: index + 1,
         status: isSuccess ? 'success' : 'failed',
         originalSql: item.schema ? `${item.schema}.${item.objname}` : (item.objname || `对象${index + 1}`),
-        srcDdl: item.srcddl || item.srcDdl || '',
-        errorSql: item.tgtddl || item.tgtDdl || item.errddl || '',
-        rewrittenSql: item.tarddl || item.tarDdl || '',
+        objtype: item.objtype || '',
+        srcDdl: item.srcddl || '',
+        errorSql: item.tgtddl || '',
+        rewrittenSql: item.tarddl || '',
         description: descriptionText,
         failedReason: failedReasonText ? `<p>${failedReasonText.replace(/\n/g, '</p><p>')}</p>` : '',
       }
